@@ -1,1 +1,1 @@
-rootProject.name = "spokelse"
+rootProject.name = "spre-stonadsstatistikk"

@@ -1,4 +1,4 @@
-package no.nav.helse.spokelse
+package no.nav.helse.stonadsstatistikk
 
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
@@ -16,7 +16,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.util.KtorExperimentalAPI
 import no.nav.helse.rapids_rivers.InMemoryRapid
 import no.nav.helse.rapids_rivers.inMemoryRapid
-import no.nav.helse.spokelse.Environment.Auth.Companion.auth
+import no.nav.helse.stonadsstatistikk.Environment.Auth.Companion.auth
 import org.awaitility.Awaitility.await
 import org.flywaydb.core.Flyway
 import org.intellij.lang.annotations.Language
@@ -104,9 +104,9 @@ class GrunnlagApiTest {
             ktor {
                 port(randomPort)
                 module {
-                    spokelse(auth(
+                    stonadsstatistikk(auth(
                         name = "issuer",
-                        clientId = "spokelse_azure_ad_app_id",
+                        clientId = "stonadsstatistikk_azure_ad_app_id",
                         validConsumers = listOf("fp_object_id"),
                         discoveryUrl = "${wireMockServer.baseUrl()}/config"
                     ), dokumentDao, vedtakDao)
@@ -401,7 +401,7 @@ class GrunnlagApiTest {
         val token = jwtStub.createTokenFor(
             subject = "fp_object_id",
             authorizedParty = "fp_object_id",
-            audience = "spokelse_azure_ad_app_id"
+            audience = "stonadsstatistikk_azure_ad_app_id"
         )
 
         val connection = appBaseUrl.handleRequest(HttpMethod.Get, this,

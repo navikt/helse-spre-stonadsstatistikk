@@ -1,10 +1,10 @@
-package no.nav.helse.spokelse
+package no.nav.helse.stonadsstatistikk
 
 import com.auth0.jwk.JwkProvider
 import com.auth0.jwk.JwkProviderBuilder
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import no.nav.helse.spokelse.Environment.Auth.Companion.auth
+import no.nav.helse.stonadsstatistikk.Environment.Auth.Companion.auth
 import java.io.File
 import java.io.InputStream
 import java.net.HttpURLConnection

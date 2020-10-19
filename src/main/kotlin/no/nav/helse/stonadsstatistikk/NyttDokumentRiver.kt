@@ -1,4 +1,4 @@
-package no.nav.helse.spokelse
+package no.nav.helse.stonadsstatistikk
 
 import no.nav.helse.rapids_rivers.JsonMessage
 import no.nav.helse.rapids_rivers.RapidsConnection
@@ -7,7 +7,7 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.util.*
 
-private val log: Logger = LoggerFactory.getLogger("spokelse")
+private val log: Logger = LoggerFactory.getLogger("stonadsstatistikk")
 
 internal class NyttDokumentRiver(rapidsConnection: RapidsConnection, private val dokumentDao: DokumentDao) : River.PacketListener {
     init {

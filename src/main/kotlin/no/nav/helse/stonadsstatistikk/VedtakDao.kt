@@ -1,4 +1,4 @@
-package no.nav.helse.spokelse
+package no.nav.helse.stonadsstatistikk
 
 import kotliquery.queryOf
 import kotliquery.sessionOf

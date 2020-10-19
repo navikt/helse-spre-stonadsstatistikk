@@ -1,4 +1,4 @@
-package no.nav.helse.spokelse
+package no.nav.helse.stonadsstatistikk
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.github.tomakehurst.wiremock.WireMockServer
@@ -44,9 +44,9 @@ class ApiTest {
                 port(randomPort)
                 withCollectorRegistry(CollectorRegistry())
                 module {
-                    spokelse(
+                    stonadsstatistikk(
                         Environment.Auth(
-                            name = "spokelse",
+                            name = "stonadsstatistikk",
                             clientId = "client-Id",
                             validConsumers = listOf("arena"),
                             issuer = "Microsoft Azure AD",

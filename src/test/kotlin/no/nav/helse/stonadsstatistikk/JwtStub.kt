@@ -1,4 +1,4 @@
-package no.nav.helse.spokelse
+package no.nav.helse.stonadsstatistikk
 
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm

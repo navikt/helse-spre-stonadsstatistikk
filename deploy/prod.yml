@@ -1,7 +1,7 @@
 apiVersion: nais.io/v1alpha1
 kind: Application
 metadata:
-  name: spokelse
+  name: stonadsstatistikk
   namespace: tbd
   labels:
     team: tbd
@@ -35,16 +35,16 @@ spec:
     enabled: true
     paths:
       - mountPath: /var/run/secrets/nais.io/service_user
-        kvPath: /serviceuser/data/prod/srvspokelse
+        kvPath: /serviceuser/data/prod/srvstonadsstatistikk
       - mountPath: /var/run/secrets/nais.io/azure
-        kvPath: /azuread/data/prod/creds/spokelse
+        kvPath: /azuread/data/prod/creds/stonadsstatistikk
   env:
   - name: KAFKA_BOOTSTRAP_SERVERS
     value: a01apvl00145.adeo.no:8443,a01apvl00146.adeo.no:8443,a01apvl00147.adeo.no:8443,a01apvl00148.adeo.no:8443,a01apvl00149.adeo.no:8443,a01apvl00150.adeo.no:8443
   - name: KAFKA_RAPID_TOPIC
     value: helse-rapid-v1
   - name: KAFKA_CONSUMER_GROUP_ID
-    value: spokelse-v8
+    value: stonadsstatistikk-v1
   - name: KAFKA_RESET_POLICY
     value: earliest
   - name: DATABASE_HOST
@@ -52,7 +52,7 @@ spec:
   - name: DATABASE_PORT
     value: "5432"
   - name: DATABASE_NAME
-    value: spokelse
+    value: stonadsstatistikk
   - name: DATABASE_VAULT_MOUNT_PATH
     value: postgresql/prod-fss/
   - name: DISCOVERY_URL

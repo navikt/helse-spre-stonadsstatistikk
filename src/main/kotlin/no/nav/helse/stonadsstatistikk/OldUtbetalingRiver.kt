@@ -1,4 +1,4 @@
-package no.nav.helse.spokelse
+package no.nav.helse.stonadsstatistikk
 
 import com.fasterxml.jackson.databind.JsonNode
 import no.nav.helse.rapids_rivers.*
@@ -9,7 +9,7 @@ import java.time.LocalDate
 import java.util.*
 import kotlin.streams.asSequence
 
-private val log: Logger = LoggerFactory.getLogger("spokelse")
+private val log: Logger = LoggerFactory.getLogger("stonadsstatistikk")
 
 class OldUtbetalingRiver(
     rapidsConnection: RapidsConnection,

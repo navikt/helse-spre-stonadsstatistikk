@@ -1,4 +1,4 @@
-package no.nav.helse.spokelse
+package no.nav.helse.stonadsstatistikk
 
 import com.zaxxer.hikari.HikariConfig
 import org.flywaydb.core.Flyway

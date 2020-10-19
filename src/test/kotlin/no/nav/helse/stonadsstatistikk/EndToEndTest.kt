@@ -1,4 +1,4 @@
-package no.nav.helse.spokelse
+package no.nav.helse.stonadsstatistikk
 
 import com.opentable.db.postgres.embedded.EmbeddedPostgres
 import com.zaxxer.hikari.HikariConfig
@@ -399,6 +399,28 @@ internal class EndToEndTest {
         assertEquals(1431, utbetaling.dagsats)
         assertEquals(1431, utbetaling.beløp)
         assertEquals(12879, utbetaling.totalbeløp)
+    }
+
+    @Test
+    fun ` `(){
+        val nyttVedtakSøknadHendelseId = UUID.randomUUID()
+        val nyttVedtakSykmelding = Hendelse(UUID.randomUUID(), nyttVedtakSøknadHendelseId, Dokument.Sykmelding)
+        val nyttVedtakSøknad = Hendelse(UUID.randomUUID(), nyttVedtakSøknadHendelseId, Dokument.Søknad)
+        val nyttVedtakInntektsmelding = Hendelse(UUID.randomUUID(), UUID.randomUUID(), Dokument.Inntektsmelding)
+        testRapid.sendTestMessage(sendtSøknadMessage(nyttVedtakSykmelding, nyttVedtakSøknad))
+        testRapid.sendTestMessage(inntektsmeldingMessage(nyttVedtakInntektsmelding))
+        val nyttVedtakHendelseId = UUID.randomUUID()
+        testRapid.sendTestMessage(
+            utbetalingMessage(
+                nyttVedtakHendelseId,
+                LocalDate.of(2020, 7, 1),
+                LocalDate.of(2020, 7, 8),
+                0,
+                listOf(nyttVedtakSykmelding, nyttVedtakSøknad, nyttVedtakInntektsmelding)
+            )
+        )
+
+
     }
 
 

@@ -1,4 +1,4 @@
-package no.nav.helse.spokelse
+package no.nav.helse.stonadsstatistikk
 
 import io.ktor.http.HttpMethod
 import java.io.InputStream

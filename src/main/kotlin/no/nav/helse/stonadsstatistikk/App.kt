@@ -1,4 +1,4 @@
-package no.nav.helse.spokelse
+package no.nav.helse.stonadsstatistikk
 
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
@@ -20,7 +20,7 @@ import org.slf4j.LoggerFactory
 import java.util.*
 import kotlin.system.measureTimeMillis
 
-private val log: Logger = LoggerFactory.getLogger("spokelse")
+private val log: Logger = LoggerFactory.getLogger("stonadsstatistikk")
 private val tjenestekallLog = LoggerFactory.getLogger("tjenestekall")
 
 @KtorExperimentalAPI
@@ -40,19 +40,19 @@ fun launchApplication(env: Environment) {
     val vedtakDao = VedtakDao(dataSource)
 
     RapidApplication.Builder(RapidApplication.RapidApplicationConfig.fromEnv(env.raw))
-        .withKtorModule { spokelse(env.auth, dokumentDao, vedtakDao) }
+//        .withKtorModule { stonadsstatistikk(env.auth, dokumentDao, vedtakDao) }
         .build()
         .apply {
-            NyttDokumentRiver(this, dokumentDao)
-            UtbetaltRiver(this, utbetaltDao, dokumentDao)
-            OldUtbetalingRiver(this, vedtakDao, dokumentDao)
-            TilUtbetalingBehovRiver(this, dokumentDao)
-            start()
+//            NyttDokumentRiver(this, dokumentDao)
+//            UtbetaltRiver(this, utbetaltDao, dokumentDao)
+//            OldUtbetalingRiver(this, vedtakDao, dokumentDao)
+//            TilUtbetalingBehovRiver(this, dokumentDao)
+//            start()
         }
 }
 
 @KtorExperimentalAPI
-internal fun Application.spokelse(env: Environment.Auth, dokumentDao: DokumentDao, vedtakDao: VedtakDao) {
+internal fun Application.stonadsstatistikk(env: Environment.Auth, dokumentDao: DokumentDao, vedtakDao: VedtakDao) {
     azureAdAppAuthentication(env)
     install(ContentNegotiation) {
         jackson {

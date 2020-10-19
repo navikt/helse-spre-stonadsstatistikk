@@ -1,4 +1,4 @@
-package no.nav.helse.spokelse
+package no.nav.helse.stonadsstatistikk
 
 import com.fasterxml.jackson.databind.JsonNode
 import no.nav.helse.rapids_rivers.*
@@ -6,7 +6,7 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.util.*
 
-private val log: Logger = LoggerFactory.getLogger("spokelse")
+private val log: Logger = LoggerFactory.getLogger("stonadsstatistikk")
 
 internal class UtbetaltRiver(
     rapidsConnection: RapidsConnection,
