@@ -2,18 +2,15 @@ package no.nav.helse.stonadsstatistikk
 
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
-import io.ktor.application.Application
-import io.ktor.application.call
-import io.ktor.application.install
-import io.ktor.auth.authenticate
-import io.ktor.features.ContentNegotiation
-import io.ktor.http.HttpStatusCode
-import io.ktor.jackson.jackson
-import io.ktor.response.respond
-import io.ktor.routing.Route
-import io.ktor.routing.get
-import io.ktor.routing.routing
-import io.ktor.util.KtorExperimentalAPI
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import io.ktor.application.*
+import io.ktor.auth.*
+import io.ktor.features.*
+import io.ktor.http.*
+import io.ktor.jackson.*
+import io.ktor.response.*
+import io.ktor.routing.*
+import io.ktor.util.*
 import no.nav.helse.rapids_rivers.RapidApplication
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -22,6 +19,10 @@ import kotlin.system.measureTimeMillis
 
 private val log: Logger = LoggerFactory.getLogger("stonadsstatistikk")
 private val tjenestekallLog = LoggerFactory.getLogger("tjenestekall")
+
+val objectMapper = jacksonObjectMapper()
+    .registerModule(JavaTimeModule())
+    .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
 
 @KtorExperimentalAPI
 fun main() {

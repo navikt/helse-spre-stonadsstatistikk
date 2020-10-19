@@ -34,6 +34,7 @@ data class Vedtak(
     val tom: LocalDate,
     val forbrukteSykedager: Int,
     val gjenståendeSykedager: Int,
+    val maksdato: LocalDate?,
     val opprettet: LocalDateTime
 ) {
     data class Oppdrag(

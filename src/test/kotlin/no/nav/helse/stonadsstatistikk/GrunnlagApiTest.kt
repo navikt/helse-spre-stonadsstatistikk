@@ -14,6 +14,7 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.util.KtorExperimentalAPI
+import io.mockk.mockk
 import no.nav.helse.rapids_rivers.InMemoryRapid
 import no.nav.helse.rapids_rivers.inMemoryRapid
 import no.nav.helse.stonadsstatistikk.Environment.Auth.Companion.auth
@@ -118,7 +119,7 @@ class GrunnlagApiTest {
         NyttDokumentRiver(rapid, dokumentDao)
         TilUtbetalingBehovRiver(rapid, dokumentDao)
         OldUtbetalingRiver(rapid, vedtakDao, dokumentDao)
-        UtbetaltRiver(rapid, utbetaltDao, dokumentDao)
+        UtbetaltRiver(rapid, utbetaltDao, dokumentDao, mockk())
     }
 
     @Test

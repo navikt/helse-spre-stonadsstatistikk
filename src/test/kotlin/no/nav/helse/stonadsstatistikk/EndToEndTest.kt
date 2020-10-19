@@ -1,12 +1,19 @@
 package no.nav.helse.stonadsstatistikk
 
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.fasterxml.jackson.module.kotlin.readValue
 import com.opentable.db.postgres.embedded.EmbeddedPostgres
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
+import io.mockk.CapturingSlot
+import io.mockk.mockk
+import io.mockk.verify
 import kotliquery.Row
 import kotliquery.queryOf
 import kotliquery.sessionOf
 import no.nav.helse.rapids_rivers.testsupport.TestRapid
+import org.apache.kafka.clients.producer.KafkaProducer
+import org.apache.kafka.clients.producer.ProducerRecord
 import org.flywaydb.core.Flyway
 import org.intellij.lang.annotations.Language
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -15,7 +22,8 @@ import org.junit.jupiter.api.Test
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalDateTime
-import java.util.UUID
+import java.time.temporal.TemporalAdjusters
+import java.util.*
 import javax.sql.DataSource
 import kotlin.streams.asSequence
 
@@ -29,9 +37,11 @@ internal class EndToEndTest {
     val utbetaltDao = UtbetaltDao(dataSource)
     val vedtakDao = VedtakDao(dataSource)
 
+    private val kafkaStonadProducer: KafkaProducer<String, String> = mockk(relaxed = true)
+
     init {
         NyttDokumentRiver(testRapid, dokumentDao)
-        UtbetaltRiver(testRapid, utbetaltDao, dokumentDao)
+        UtbetaltRiver(testRapid, utbetaltDao, dokumentDao, kafkaStonadProducer)
         OldUtbetalingRiver(testRapid, vedtakDao, dokumentDao)
 
         Flyway.configure()
@@ -94,6 +104,7 @@ internal class EndToEndTest {
                             tom = row.localDate("tom"),
                             forbrukteSykedager = row.int("forbrukte_sykedager"),
                             gjenståendeSykedager = row.int("gjenstående_sykedager"),
+                            maksdato = row.localDate("maksdato"),
                             opprettet = row.localDateTime("opprettet")
                         )
                     }.asList
@@ -137,6 +148,7 @@ internal class EndToEndTest {
                             tom = row.localDate("tom"),
                             forbrukteSykedager = row.int("forbrukte_sykedager"),
                             gjenståendeSykedager = row.int("gjenstående_sykedager"),
+                            maksdato = row.localDate("maksdato"),
                             opprettet = row.localDateTime("opprettet")
                         )
                     }.asList
@@ -402,7 +414,7 @@ internal class EndToEndTest {
     }
 
     @Test
-    fun ` `(){
+    fun `Dagens situasjon`() {
         val nyttVedtakSøknadHendelseId = UUID.randomUUID()
         val nyttVedtakSykmelding = Hendelse(UUID.randomUUID(), nyttVedtakSøknadHendelseId, Dokument.Sykmelding)
         val nyttVedtakSøknad = Hendelse(UUID.randomUUID(), nyttVedtakSøknadHendelseId, Dokument.Søknad)
@@ -420,7 +432,41 @@ internal class EndToEndTest {
             )
         )
 
+        val capture = CapturingSlot<ProducerRecord<String, String>>()
 
+        verify { kafkaStonadProducer.send(capture(capture)) }
+
+        val sendtTilStønad = objectMapper.readValue<UtbetaltEvent>(capture.captured.value())
+
+        val event = UtbetaltEvent(
+            fødselsnummer = FNR,
+            organisasjonsnummer = ORGNUMMER,
+            sykmeldingId = nyttVedtakSykmelding.dokumentId,
+            soknadId = nyttVedtakSøknad.dokumentId,
+            inntektsmeldingId = nyttVedtakInntektsmelding.dokumentId,
+            oppdrag = listOf(UtbetaltEvent.Utbetalt(
+                mottaker = ORGNUMMER,
+                fagområde = "SPREF",
+                fagsystemId = "77ATRH3QENHB5K4XUY4LQ7HRTY",
+                totalbeløp = 8586,
+                utbetalingslinjer = listOf(UtbetaltEvent.Utbetalt.Utbetalingslinje(
+                    fom = LocalDate.of(2020, 7, 1),
+                    tom = LocalDate.of(2020, 7, 8),
+                    dagsats = 1431,
+                    beløp = 1431,
+                    grad = 100.0,
+                    sykedager = 6
+                ))
+            )),
+            fom = LocalDate.of(2020, 7, 1),
+            tom = LocalDate.of(2020, 7, 8),
+            forbrukteSykedager = 6,
+            gjenståendeSykedager = 242,
+            maksdato = LocalDate.of(2021, 6, 11),
+            sendtTilUtbetalingTidspunkt = sendtTilStønad.sendtTilUtbetalingTidspunkt
+        )
+
+        assertEquals(event, sendtTilStønad)
     }
 
 
@@ -466,6 +512,7 @@ internal class EndToEndTest {
     "tom": "$tom",
     "forbrukteSykedager": ${tidligereBrukteSykedager + sykedager(fom, tom)},
     "gjenståendeSykedager": ${248 - tidligereBrukteSykedager - sykedager(fom, tom)},
+    "maksdato": "${maksdato(tidligereBrukteSykedager, fom, tom)}",
     "opprettet": "2020-05-04T11:26:30.23846",
     "system_read_count": 0,
     "@event_name": "utbetalt",
@@ -568,6 +615,11 @@ internal class EndToEndTest {
         fom.datesUntil(tom.plusDays(1)).asSequence()
             .filter { it.dayOfWeek !in arrayOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY) }.count()
 
+    private fun maksdato(tidligereBrukteSykedager: Int, fom: LocalDate, tom: LocalDate) =
+        (0..247 - sykedager(fom, tom) - tidligereBrukteSykedager).fold(tom) { tilOgMed, _ ->
+            if (tilOgMed.dayOfWeek in listOf(DayOfWeek.FRIDAY, DayOfWeek.SATURDAY)) tilOgMed.with(TemporalAdjusters.next(DayOfWeek.MONDAY))
+            else tilOgMed.plusDays(1)
+        }
 }
 
 fun testDataSource(): DataSource {
