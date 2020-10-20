@@ -26,10 +26,10 @@ internal class TilUtbetalingBehovRiverTest {
         maxLifetime = 30001
     }
     val dataSource = HikariDataSource(hikariConfig)
-    val dokumentDao = DokumentDao(dataSource)
+    val utbetaltBehovDao = UtbetaltBehovDao(dataSource)
 
     init {
-        TilUtbetalingBehovRiver(testRapid, dokumentDao)
+        TilUtbetalingBehovRiver(testRapid, utbetaltBehovDao)
 
         Flyway.configure()
             .dataSource(dataSource)

@@ -4,6 +4,7 @@ import kotliquery.Session
 import kotliquery.queryOf
 import kotliquery.sessionOf
 import org.intellij.lang.annotations.Language
+import java.util.*
 import javax.sql.DataSource
 
 data class Dokumenter(
@@ -19,15 +20,15 @@ data class Dokumenter(
 }
 
 class UtbetaltDao(val datasource: DataSource) {
-    fun opprett(vedtak: Vedtak) {
+    fun opprett(hendelseId: UUID, vedtak: UtbetaltEvent) {
         sessionOf(datasource, true).use { session ->
             session.transaction {
-                it.opprett(vedtak)
+                it.opprett(hendelseId, vedtak)
             }
         }
     }
 
-    private fun Session.opprett(vedtak: Vedtak) {
+    private fun Session.opprett(hendelseId: UUID, vedtak: UtbetaltEvent) {
         @Language("PostgreSQL")
         val query = """INSERT INTO vedtak(
             fodselsnummer,
@@ -46,22 +47,22 @@ class UtbetaltDao(val datasource: DataSource) {
             queryOf(
                 query,
                 vedtak.fødselsnummer,
-                vedtak.orgnummer,
-                vedtak.opprettet,
+                vedtak.organisasjonsnummer,
+                vedtak.sendtTilUtbetalingTidspunkt,
                 vedtak.fom,
                 vedtak.tom,
                 vedtak.forbrukteSykedager,
                 vedtak.gjenståendeSykedager,
-                vedtak.dokumenter.sykmelding.dokumentId,
-                vedtak.dokumenter.søknad.dokumentId,
-                vedtak.dokumenter.inntektsmelding?.dokumentId,
-                vedtak.hendelseId
+                vedtak.sykmeldingId,
+                vedtak.soknadId,
+                vedtak.inntektsmeldingId,
+                hendelseId
             ).asUpdateAndReturnGeneratedKey
         )
         opprettOppdrag(requireNotNull(key), vedtak.oppdrag)
     }
 
-    private fun Session.opprettOppdrag(vedtakKey: Long, oppdragListe: List<Vedtak.Oppdrag>) {
+    private fun Session.opprettOppdrag(vedtakKey: Long, oppdragListe: List<UtbetaltEvent.Utbetalt>) {
         @Language("PostgreSQL")
         val query = """INSERT INTO oppdrag(vedtak_id, mottaker, fagområde, fagsystemid, totalbeløp)
             VALUES(?,?,?,?,?)"""
@@ -80,7 +81,7 @@ class UtbetaltDao(val datasource: DataSource) {
         }
     }
 
-    private fun Session.opprettUtbetalingslinjer(oppdragKey: Long, linjeListe: List<Vedtak.Oppdrag.Utbetalingslinje>) {
+    private fun Session.opprettUtbetalingslinjer(oppdragKey: Long, linjeListe: List<UtbetaltEvent.Utbetalt.Utbetalingslinje>) {
         @Language("PostgreSQL")
         val query = """INSERT INTO utbetaling(oppdrag_id, fom, tom, dagsats, grad, belop, sykedager)
             VALUES(?,?,?,?,?,?,?)"""

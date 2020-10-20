@@ -1,6 +1,5 @@
 package no.nav.helse.stonadsstatistikk
 
-import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.opentable.db.postgres.embedded.EmbeddedPostgres
 import com.zaxxer.hikari.HikariConfig
@@ -31,18 +30,21 @@ private const val FNR = "12020052345"
 private const val ORGNUMMER = "987654321"
 
 internal class EndToEndTest {
-    val testRapid = TestRapid()
-    val dataSource = testDataSource()
-    val dokumentDao = DokumentDao(dataSource)
-    val utbetaltDao = UtbetaltDao(dataSource)
-    val vedtakDao = VedtakDao(dataSource)
-
-    private val kafkaStonadProducer: KafkaProducer<String, String> = mockk(relaxed = true)
+    private val testRapid = TestRapid()
+    private val dataSource = testDataSource()
+    private val dokumentDao = DokumentDao(dataSource)
+    private val utbetaltDao = UtbetaltDao(dataSource)
+    private val vedtakDao = VedtakDao(dataSource)
+    private val utbetaltBehovDao = UtbetaltBehovDao(dataSource)
+    private val kafkaStønadProducer: KafkaProducer<String, String> = mockk(relaxed = true)
+    private val utbetaltService = UtbetaltService(utbetaltDao, dokumentDao, utbetaltBehovDao, kafkaStønadProducer)
 
     init {
         NyttDokumentRiver(testRapid, dokumentDao)
-        UtbetaltRiver(testRapid, utbetaltDao, dokumentDao, kafkaStonadProducer)
-        OldUtbetalingRiver(testRapid, vedtakDao, dokumentDao)
+        TilUtbetalingBehovRiver(testRapid, utbetaltBehovDao)
+        UtbetaltRiver(testRapid, utbetaltService)
+        UtbetaltUtenMaksdatoRiver(testRapid, utbetaltService)
+        OldUtbetalingRiver(testRapid, utbetaltService)
 
         Flyway.configure()
             .dataSource(dataSource)
@@ -434,7 +436,7 @@ internal class EndToEndTest {
 
         val capture = CapturingSlot<ProducerRecord<String, String>>()
 
-        verify { kafkaStonadProducer.send(capture(capture)) }
+        verify { kafkaStønadProducer.send(capture(capture)) }
 
         val sendtTilStønad = objectMapper.readValue<UtbetaltEvent>(capture.captured.value())
 
@@ -469,6 +471,136 @@ internal class EndToEndTest {
         assertEquals(event, sendtTilStønad)
     }
 
+    @Test
+    fun `Utbetalingsevent uten maksdato`() {
+        val nyttVedtakSøknadHendelseId = UUID.randomUUID()
+        val nyttVedtakSykmelding = Hendelse(UUID.randomUUID(), nyttVedtakSøknadHendelseId, Dokument.Sykmelding)
+        val nyttVedtakSøknad = Hendelse(UUID.randomUUID(), nyttVedtakSøknadHendelseId, Dokument.Søknad)
+        val nyttVedtakInntektsmelding = Hendelse(UUID.randomUUID(), UUID.randomUUID(), Dokument.Inntektsmelding)
+        testRapid.sendTestMessage(sendtSøknadMessage(nyttVedtakSykmelding, nyttVedtakSøknad))
+        testRapid.sendTestMessage(inntektsmeldingMessage(nyttVedtakInntektsmelding))
+        val vedtaksperiodeId = UUID.randomUUID()
+        val fagsystemId = "VNDG2PFPMNB4FKMC4ORASZ2JJ4"
+        testRapid.sendTestMessage(
+            utbetalingBehov(
+                vedtaksperiodeId,
+                fagsystemId,
+                LocalDate.of(2020, 7, 1),
+                LocalDate.of(2020, 7, 8)
+            )
+        )
+        val nyttVedtakHendelseId = UUID.randomUUID()
+        testRapid.sendTestMessage(
+            utbetalingMessageUtenMaksdato(
+                nyttVedtakHendelseId,
+                LocalDate.of(2020, 7, 1),
+                LocalDate.of(2020, 7, 8),
+                0,
+                listOf(nyttVedtakSykmelding, nyttVedtakSøknad, nyttVedtakInntektsmelding),
+                fagsystemId
+            )
+        )
+
+        val capture = CapturingSlot<ProducerRecord<String, String>>()
+
+        verify { kafkaStønadProducer.send(capture(capture)) }
+
+        val sendtTilStønad = objectMapper.readValue<UtbetaltEvent>(capture.captured.value())
+
+        val event = UtbetaltEvent(
+            fødselsnummer = FNR,
+            organisasjonsnummer = ORGNUMMER,
+            sykmeldingId = nyttVedtakSykmelding.dokumentId,
+            soknadId = nyttVedtakSøknad.dokumentId,
+            inntektsmeldingId = nyttVedtakInntektsmelding.dokumentId,
+            oppdrag = listOf(UtbetaltEvent.Utbetalt(
+                mottaker = ORGNUMMER,
+                fagområde = "SPREF",
+                fagsystemId = fagsystemId,
+                totalbeløp = 8586,
+                utbetalingslinjer = listOf(UtbetaltEvent.Utbetalt.Utbetalingslinje(
+                    fom = LocalDate.of(2020, 7, 1),
+                    tom = LocalDate.of(2020, 7, 8),
+                    dagsats = 1431,
+                    beløp = 1431,
+                    grad = 100.0,
+                    sykedager = 6
+                ))
+            )),
+            fom = LocalDate.of(2020, 7, 1),
+            tom = LocalDate.of(2020, 7, 8),
+            forbrukteSykedager = 6,
+            gjenståendeSykedager = 242,
+            maksdato = LocalDate.of(2021, 6, 11),
+            sendtTilUtbetalingTidspunkt = sendtTilStønad.sendtTilUtbetalingTidspunkt
+        )
+
+        assertEquals(event, sendtTilStønad)
+    }
+
+    @Test
+    fun `Gammelt utbetalingsevent`() {
+        val nyttVedtakSøknadHendelseId = UUID.randomUUID()
+        val nyttVedtakSykmelding = Hendelse(UUID.randomUUID(), nyttVedtakSøknadHendelseId, Dokument.Sykmelding)
+        val nyttVedtakSøknad = Hendelse(UUID.randomUUID(), nyttVedtakSøknadHendelseId, Dokument.Søknad)
+        val nyttVedtakInntektsmelding = Hendelse(UUID.randomUUID(), UUID.randomUUID(), Dokument.Inntektsmelding)
+        testRapid.sendTestMessage(sendtSøknadMessage(nyttVedtakSykmelding, nyttVedtakSøknad))
+        testRapid.sendTestMessage(inntektsmeldingMessage(nyttVedtakInntektsmelding))
+        val vedtaksperiodeId = UUID.randomUUID()
+        val fagsystemId = "VNDG2PFPMNB4FKMC4ORASZ2JJ4"
+        testRapid.sendTestMessage(
+            utbetalingBehov(
+                vedtaksperiodeId,
+                fagsystemId,
+                LocalDate.of(2020, 7, 1),
+                LocalDate.of(2020, 7, 8)
+            )
+        )
+        testRapid.sendTestMessage(
+            vedtakMedUtbetalingslinjernøkkel(
+                LocalDate.of(2020, 7, 1),
+                LocalDate.of(2020, 7, 8),
+                vedtaksperiodeId,
+                listOf(nyttVedtakSykmelding, nyttVedtakSøknad, nyttVedtakInntektsmelding)
+            )
+        )
+
+        val capture = CapturingSlot<ProducerRecord<String, String>>()
+
+        verify { kafkaStønadProducer.send(capture(capture)) }
+
+        val sendtTilStønad = objectMapper.readValue<UtbetaltEvent>(capture.captured.value())
+
+        val event = UtbetaltEvent(
+            fødselsnummer = FNR,
+            organisasjonsnummer = ORGNUMMER,
+            sykmeldingId = nyttVedtakSykmelding.dokumentId,
+            soknadId = nyttVedtakSøknad.dokumentId,
+            inntektsmeldingId = nyttVedtakInntektsmelding.dokumentId,
+            oppdrag = listOf(UtbetaltEvent.Utbetalt(
+                mottaker = ORGNUMMER,
+                fagområde = "SPREF",
+                fagsystemId = fagsystemId,
+                totalbeløp = 8586,
+                utbetalingslinjer = listOf(UtbetaltEvent.Utbetalt.Utbetalingslinje(
+                    fom = LocalDate.of(2020, 7, 1),
+                    tom = LocalDate.of(2020, 7, 8),
+                    dagsats = 1431,
+                    beløp = 1431,
+                    grad = 100.0,
+                    sykedager = 6
+                ))
+            )),
+            fom = LocalDate.of(2020, 7, 1),
+            tom = LocalDate.of(2020, 7, 8),
+            forbrukteSykedager = 6,
+            gjenståendeSykedager = 242,
+            maksdato = LocalDate.of(2021, 6, 11),
+            sendtTilUtbetalingTidspunkt = sendtTilStønad.sendtTilUtbetalingTidspunkt
+        )
+
+        assertEquals(event, sendtTilStønad)
+    }
 
     @Language("JSON")
     private fun utbetalingMessage(
@@ -476,7 +608,8 @@ internal class EndToEndTest {
         fom: LocalDate,
         tom: LocalDate,
         tidligereBrukteSykedager: Int,
-        hendelser: List<Hendelse>
+        hendelser: List<Hendelse>,
+        fagsystemId: String = "77ATRH3QENHB5K4XUY4LQ7HRTY"
     ) = """{
     "aktørId": "aktørId",
     "fødselsnummer": "$FNR",
@@ -486,7 +619,7 @@ internal class EndToEndTest {
         {
             "mottaker": "$ORGNUMMER",
             "fagområde": "SPREF",
-            "fagsystemId": "77ATRH3QENHB5K4XUY4LQ7HRTY",
+            "fagsystemId": "$fagsystemId",
             "førsteSykepengedag": "",
             "totalbeløp": 8586,
             "utbetalingslinjer": [
@@ -513,6 +646,62 @@ internal class EndToEndTest {
     "forbrukteSykedager": ${tidligereBrukteSykedager + sykedager(fom, tom)},
     "gjenståendeSykedager": ${248 - tidligereBrukteSykedager - sykedager(fom, tom)},
     "maksdato": "${maksdato(tidligereBrukteSykedager, fom, tom)}",
+    "opprettet": "2020-05-04T11:26:30.23846",
+    "system_read_count": 0,
+    "@event_name": "utbetalt",
+    "@id": "$hendelseId",
+    "@opprettet": "2020-05-04T11:27:13.521398",
+    "@forårsaket_av": {
+        "event_name": "behov",
+        "id": "cf28fbba-562e-4841-b366-be1456fdccee",
+        "opprettet": "2020-05-04T11:26:47.088455"
+    }
+}
+"""
+
+    @Language("JSON")
+    private fun utbetalingMessageUtenMaksdato(
+        hendelseId: UUID,
+        fom: LocalDate,
+        tom: LocalDate,
+        tidligereBrukteSykedager: Int,
+        hendelser: List<Hendelse>,
+        fagsystemId: String = "77ATRH3QENHB5K4XUY4LQ7HRTY"
+    ) = """{
+    "aktørId": "aktørId",
+    "fødselsnummer": "$FNR",
+    "organisasjonsnummer": "$ORGNUMMER",
+    "hendelser": ${hendelser.map { "\"${it.hendelseId}\"" }},
+    "utbetalt": [
+        {
+            "mottaker": "$ORGNUMMER",
+            "fagområde": "SPREF",
+            "fagsystemId": "$fagsystemId",
+            "førsteSykepengedag": "",
+            "totalbeløp": 8586,
+            "utbetalingslinjer": [
+                {
+                    "fom": "$fom",
+                    "tom": "$tom",
+                    "dagsats": 1431,
+                    "beløp": 1431,
+                    "grad": 100.0,
+                    "sykedager": ${sykedager(fom, tom)}
+                }
+            ]
+        },
+        {
+            "mottaker": "$FNR",
+            "fagområde": "SP",
+            "fagsystemId": "353OZWEIBBAYZPKU6WYKTC54SE",
+            "totalbeløp": 0,
+            "utbetalingslinjer": []
+        }
+    ],
+    "fom": "$fom",
+    "tom": "$tom",
+    "forbrukteSykedager": ${tidligereBrukteSykedager + sykedager(fom, tom)},
+    "gjenståendeSykedager": ${248 - tidligereBrukteSykedager - sykedager(fom, tom)},
     "opprettet": "2020-05-04T11:26:30.23846",
     "system_read_count": 0,
     "@event_name": "utbetalt",
@@ -606,7 +795,7 @@ internal class EndToEndTest {
     "sisteArbeidsgiverdag": null,
     "nettoBeløp": 8586,
     "saksbehandler": "en_saksbehandler",
-    "maksdato": "2019-01-01",
+    "maksdato": "${maksdato(0, fom, tom)}",
     "system_read_count": 0
 }
 """
@@ -622,7 +811,7 @@ internal class EndToEndTest {
         }
 }
 
-fun testDataSource(): DataSource {
+private fun testDataSource(): DataSource {
     val embeddedPostgres = EmbeddedPostgres.builder().setPort(56789).start()
     val hikariConfig = HikariConfig().apply {
         this.jdbcUrl = embeddedPostgres.getJdbcUrl("postgres", "postgres")
@@ -642,7 +831,7 @@ fun testDataSource(): DataSource {
 
 }
 
-fun sendtSøknadMessage(sykmelding: Hendelse, søknad: Hendelse) =
+private fun sendtSøknadMessage(sykmelding: Hendelse, søknad: Hendelse) =
     """{
             "@event_name": "sendt_søknad_nav",
             "@id": "${søknad.hendelseId}",
@@ -650,7 +839,7 @@ fun sendtSøknadMessage(sykmelding: Hendelse, søknad: Hendelse) =
             "sykmeldingId": "${sykmelding.dokumentId}"
         }"""
 
-fun inntektsmeldingMessage(hendelse: Hendelse) =
+private fun inntektsmeldingMessage(hendelse: Hendelse) =
     """{
             "@event_name": "inntektsmelding",
             "@id": "${hendelse.hendelseId}",

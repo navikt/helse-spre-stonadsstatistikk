@@ -117,9 +117,9 @@ class GrunnlagApiTest {
 
 
         NyttDokumentRiver(rapid, dokumentDao)
-        TilUtbetalingBehovRiver(rapid, dokumentDao)
-        OldUtbetalingRiver(rapid, vedtakDao, dokumentDao)
-        UtbetaltRiver(rapid, utbetaltDao, dokumentDao, mockk())
+        TilUtbetalingBehovRiver(rapid, mockk())
+        OldUtbetalingRiver(rapid, mockk())
+        UtbetaltRiver(rapid, mockk())
     }
 
     @Test

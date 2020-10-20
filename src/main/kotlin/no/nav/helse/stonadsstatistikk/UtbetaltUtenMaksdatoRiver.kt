@@ -10,9 +10,9 @@ import java.util.*
 
 private val log: Logger = LoggerFactory.getLogger("stonadsstatistikk")
 
-internal class UtbetaltRiver(
-    rapidsConnection: RapidsConnection,
-    private val utbetaltService: UtbetaltService
+internal class UtbetaltUtenMaksdatoRiver(
+        rapidsConnection: RapidsConnection,
+        private val utbetaltService: UtbetaltService
 ) : River.PacketListener {
 
     init {
@@ -31,24 +31,23 @@ internal class UtbetaltRiver(
                 )
                 it.require("fom", JsonNode::asLocalDate)
                 it.require("tom", JsonNode::asLocalDate)
-                it.require("maksdato") {}
                 it.require("@opprettet", JsonNode::asLocalDateTime)
+                it.interestedIn("maksdato")
             }
         }.register(this)
     }
 
     class Vedtak(
-        val hendelseId: UUID,
-        val fødselsnummer: String,
-        val orgnummer: String,
-        val hendelser: List<UUID>,
-        val oppdrag: List<Oppdrag>,
-        val fom: LocalDate,
-        val tom: LocalDate,
-        val forbrukteSykedager: Int,
-        val gjenståendeSykedager: Int,
-        val maksdato: LocalDate?,
-        val opprettet: LocalDateTime
+            val hendelseId: UUID,
+            val fødselsnummer: String,
+            val orgnummer: String,
+            val hendelser: List<UUID>,
+            val oppdrag: List<Oppdrag>,
+            val fom: LocalDate,
+            val tom: LocalDate,
+            val forbrukteSykedager: Int,
+            val gjenståendeSykedager: Int,
+            val opprettet: LocalDateTime
     ) {
         class Oppdrag(
             val mottaker: String,
@@ -58,18 +57,19 @@ internal class UtbetaltRiver(
             val utbetalingslinjer: List<Utbetalingslinje>
         ) {
             class Utbetalingslinje(
-                val fom: LocalDate,
-                val tom: LocalDate,
-                val dagsats: Int,
-                val beløp: Int,
-                val grad: Double,
-                val sykedager: Int
+                    val fom: LocalDate,
+                    val tom: LocalDate,
+                    val dagsats: Int,
+                    val beløp: Int,
+                    val grad: Double,
+                    val sykedager: Int
             )
         }
     }
 
 
     override fun onPacket(packet: JsonMessage, context: RapidsConnection.MessageContext) {
+        if(!packet["maksdato"].isMissingNode) return
         val vedtak = Vedtak(
             hendelseId = UUID.fromString(packet["@id"].asText()),
             fødselsnummer = packet["fødselsnummer"].asText(),
@@ -80,12 +80,11 @@ internal class UtbetaltRiver(
             tom = packet["tom"].asLocalDate(),
             forbrukteSykedager = packet["forbrukteSykedager"].asInt(),
             gjenståendeSykedager = packet["gjenståendeSykedager"].asInt(),
-            maksdato = packet["maksdato"].asOptionalLocalDate(),
             opprettet = packet["@opprettet"].asLocalDateTime()
         )
 
         utbetaltService.håndter(vedtak)
-        log.info("Utbetaling med maksdato på ${packet["aktørId"]} håndtert")
+        log.info("Utbetaling uten maksdato på ${packet["aktørId"]} håndtert")
     }
 
     private fun JsonNode.toOppdrag() = map {

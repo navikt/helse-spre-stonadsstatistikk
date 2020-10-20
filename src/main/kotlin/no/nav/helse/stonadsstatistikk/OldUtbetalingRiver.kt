@@ -1,26 +1,24 @@
 package no.nav.helse.stonadsstatistikk
 
-import com.fasterxml.jackson.databind.JsonNode
 import no.nav.helse.rapids_rivers.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.util.*
-import kotlin.streams.asSequence
 
 private val log: Logger = LoggerFactory.getLogger("stonadsstatistikk")
 
-class OldUtbetalingRiver(
+internal class OldUtbetalingRiver(
     rapidsConnection: RapidsConnection,
-    private val vedtakDao: VedtakDao,
-    private val dokumentDao: DokumentDao
+    private val utbetaltService: UtbetaltService
 ) : River.PacketListener {
     init {
         River(rapidsConnection).apply {
             validate {
                 it.requireValue("@event_name", "utbetalt")
                 it.requireKey(
+                    "@id",
                     "vedtaksperiodeId",
                     "hendelser",
                     "fødselsnummer",
@@ -33,50 +31,54 @@ class OldUtbetalingRiver(
         }.register(this)
     }
 
-    override fun onPacket(packet: JsonMessage, context: RapidsConnection.MessageContext) {
-        vedtakDao.save(packet.toVedtak())
+    class OldVedtak(
+        val hendelseId: UUID,
+        val vedtaksperiodeId: UUID,
+        val fødselsnummer: String,
+        val orgnummer: String,
+        val utbetalinger: List<OldUtbetaling>,
+        val opprettet: LocalDateTime,
+        val forbrukteSykedager: Int,
+        val gjenståendeSykedager: Int?,
+        val hendelser: List<UUID>
+    ) {
+        class OldUtbetaling(
+            val fom: LocalDate,
+            val tom: LocalDate,
+            val grad: Double,
+            val dagsats: Int,
+            val beløp: Int
+        )
     }
 
-    private fun JsonNode.toDokumenter() =
-        dokumentDao.finnDokumenter(map { UUID.fromString(it.asText()) })
-
-    private fun JsonMessage.toVedtak(): OldVedtak {
+    override fun onPacket(packet: JsonMessage, context: RapidsConnection.MessageContext) {
         val utbetalingslinjer =
-            this["utbetalingslinjer"].takeUnless { it.isMissingOrNull() }?.toList()
-                ?: this["utbetaling"].flatMap { it["utbetalingslinjer"] }
-
-        val vedtaksperiodeId = UUID.fromString(this["vedtaksperiodeId"].asText())
-        val dokumenter = this["hendelser"].toDokumenter()
-
-        return OldVedtak(
+            packet["utbetalingslinjer"].takeUnless { it.isMissingOrNull() }?.toList()
+                ?: packet["utbetaling"].flatMap { it["utbetalingslinjer"] }
+        val vedtaksperiodeId = UUID.fromString(packet["vedtaksperiodeId"].asText())
+        val vedtak = OldVedtak(
+            hendelseId = UUID.fromString(packet["@id"].asText()),
             vedtaksperiodeId = vedtaksperiodeId,
-            fødselsnummer = this["fødselsnummer"].asText(),
-            orgnummer = this["organisasjonsnummer"].asText(),
+            fødselsnummer = packet["fødselsnummer"].asText(),
+            orgnummer = packet["organisasjonsnummer"].asText(),
             utbetalinger = utbetalingslinjer.map {
                 val fom = it["fom"].asLocalDate()
                 val tom = it["tom"].asLocalDate()
                 val beløp = it["beløp"].asInt()
-                OldUtbetaling(
+                OldVedtak.OldUtbetaling(
                     fom = fom,
                     tom = tom,
                     grad = it["grad"].asDouble(),
                     dagsats = it["dagsats"].asInt(),
-                    beløp = beløp,
-                    totalbeløp = beregnTotalbeløp(fom, tom, beløp)
+                    beløp = beløp
                 )
             },
-            opprettet = this["@opprettet"].asLocalDateTime(),
-            forbrukteSykedager = this["forbrukteSykedager"].asInt(),
-            gjenståendeSykedager = this["gjenståendeSykedager"].takeUnless { it.isMissingOrNull() }?.asInt(),
-            dokumenter = dokumenter
-        ).also { log.info("Lagret gammelt vedtak med vedtakperiodeId $vedtaksperiodeId") }
+            opprettet = packet["@opprettet"].asLocalDateTime(),
+            forbrukteSykedager = packet["forbrukteSykedager"].asInt(),
+            gjenståendeSykedager = packet["gjenståendeSykedager"].takeUnless { it.isMissingOrNull() }?.asInt(),
+            hendelser = packet["hendelser"].map { UUID.fromString(it.asText()) }
+        )
+        utbetaltService.håndter(vedtak)
+        log.info("Håndtert gammelt vedtak med vedtakperiodeId $vedtaksperiodeId")
     }
-
-    private fun beregnTotalbeløp(fom: LocalDate, tom: LocalDate, beløp: Int) =
-        fom.datesUntil(tom.plusDays(1))
-            .asSequence()
-            .filterNot { it.dayOfWeek in arrayOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY) }
-            .sumBy { beløp }
 }
-
-
