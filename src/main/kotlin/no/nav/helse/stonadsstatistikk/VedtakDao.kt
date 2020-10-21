@@ -18,7 +18,7 @@ class VedtakDao(private val dataSource: DataSource) {
                 orgnummer,
                 opprettet,
                 forbrukte_sykedager,
-                gjenstående_sykedager,
+                gjenstaende_sykedager,
                 sykmelding_id,
                 soknad_id,
                 inntektsmelding_id)

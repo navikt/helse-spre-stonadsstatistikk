@@ -1,5 +1,6 @@
 package no.nav.helse.stonadsstatistikk
 
+import com.fasterxml.jackson.databind.JsonNode
 import no.nav.helse.rapids_rivers.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -16,7 +17,8 @@ internal class TilUtbetalingBehovRiver(
             validate {
                 it.requireValue("@event_name", "behov")
                 it.requireAll("@behov", listOf("Utbetaling"))
-                it.requireKey("vedtaksperiodeId", "fagsystemId", "maksdato")
+                it.requireKey("vedtaksperiodeId", "fagsystemId")
+                it.require("maksdato", JsonNode::asLocalDate)
             }
         }.register(this)
     }

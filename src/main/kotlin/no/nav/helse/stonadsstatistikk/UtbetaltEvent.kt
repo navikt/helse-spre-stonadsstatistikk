@@ -35,3 +35,8 @@ data class UtbetaltEvent(
         )
     }
 }
+
+data class Annullering(
+    val fødselsnummer: String,
+    val fagsystemId: String
+)

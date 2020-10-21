@@ -2,6 +2,7 @@ package no.nav.helse.stonadsstatistikk
 
 import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.kafka.clients.producer.ProducerRecord
+import org.apache.kafka.common.header.internals.RecordHeader
 import java.time.DayOfWeek
 import java.time.LocalDate
 import kotlin.streams.asSequence
@@ -10,13 +11,20 @@ internal class UtbetaltService(
     private val utbetaltDao: UtbetaltDao,
     private val dokumentDao: DokumentDao,
     private val utbetaltBehovDao: UtbetaltBehovDao,
+    private val annulleringDao: AnnulleringDao,
     private val stønadProducer: KafkaProducer<String, String>
 ) {
     internal fun håndter(vedtak: UtbetaltRiver.Vedtak) {
         val dokumenter = dokumentDao.finnDokumenter(vedtak.hendelser)
         val stønad: UtbetaltEvent = vedtak.toUtbetalt(dokumenter)
         utbetaltDao.opprett(vedtak.hendelseId, stønad)
-        stønadProducer.send(ProducerRecord("aapen-sykepenger-stønad", null, vedtak.fødselsnummer, objectMapper.writeValueAsString(stønad)))
+        stønadProducer.send(ProducerRecord(
+            "aapen-sykepenger-stønad",
+            null,
+            vedtak.fødselsnummer,
+            objectMapper.writeValueAsString(stønad),
+            listOf(RecordHeader("type", "UTBETALING".toByteArray()))
+        ))
     }
 
     private fun UtbetaltRiver.Vedtak.toUtbetalt(dokumenter: Dokumenter) = UtbetaltEvent(
@@ -56,7 +64,13 @@ internal class UtbetaltService(
         val maksdato = utbetaltBehovDao.finnMaksdatoForFagsystemId(vedtak.oppdrag.first { it.utbetalingslinjer.isNotEmpty() }.fagsystemId)
         val stønad: UtbetaltEvent = vedtak.toUtbetalt(dokumenter, maksdato)
         utbetaltDao.opprett(vedtak.hendelseId, stønad)
-        stønadProducer.send(ProducerRecord("aapen-sykepenger-stønad", null, vedtak.fødselsnummer, objectMapper.writeValueAsString(stønad)))
+        stønadProducer.send(ProducerRecord(
+            "aapen-sykepenger-stønad",
+            null,
+            vedtak.fødselsnummer,
+            objectMapper.writeValueAsString(stønad),
+            listOf(RecordHeader("type", "UTBETALING".toByteArray()))
+        ))
     }
 
     private fun UtbetaltUtenMaksdatoRiver.Vedtak.toUtbetalt(dokumenter: Dokumenter, maksdato: LocalDate) = UtbetaltEvent(
@@ -97,7 +111,13 @@ internal class UtbetaltService(
         val maksdato = utbetaltBehovDao.finnMaksdatoForVedtaksperiodeId(vedtak.vedtaksperiodeId)
         val stønad: UtbetaltEvent = vedtak.toUtbetalt(dokumenter, fagsystemId, maksdato)
         utbetaltDao.opprett(vedtak.hendelseId, stønad)
-        stønadProducer.send(ProducerRecord("aapen-sykepenger-stønad", null, vedtak.fødselsnummer, objectMapper.writeValueAsString(stønad)))
+        stønadProducer.send(ProducerRecord(
+            "aapen-sykepenger-stønad",
+            null,
+            vedtak.fødselsnummer,
+            objectMapper.writeValueAsString(stønad),
+            listOf(RecordHeader("type", "UTBETALING".toByteArray()))
+        ))
     }
 
     private fun OldUtbetalingRiver.OldVedtak.toUtbetalt(dokumenter: Dokumenter, fagsystemId: String, maksdato: LocalDate) = UtbetaltEvent(
@@ -127,10 +147,22 @@ internal class UtbetaltService(
         fom = utbetalinger.minOf { it.fom },
         tom = utbetalinger.maxOf { it.tom },
         forbrukteSykedager = forbrukteSykedager,
-        gjenståendeSykedager = gjenståendeSykedager ?: beregnGjenståendeSykedager(maksdato, utbetalinger.maxOf { it.tom }),
+        gjenståendeSykedager = gjenståendeSykedager
+            ?: beregnGjenståendeSykedager(maksdato, utbetalinger.maxOf { it.tom }),
         maksdato = maksdato,
         sendtTilUtbetalingTidspunkt = opprettet
     )
+
+    internal fun håndter(annullering: Annullering) {
+        annulleringDao.opprett(annullering)
+        stønadProducer.send(ProducerRecord(
+            "aapen-sykepenger-stønad",
+            null,
+            annullering.fødselsnummer,
+            objectMapper.writeValueAsString(annullering),
+            listOf(RecordHeader("type", "ANNULLERING".toByteArray()))
+        ))
+    }
 
     private fun beregnTotalbeløp(fom: LocalDate, tom: LocalDate, beløp: Int) =
         fom.datesUntil(tom.plusDays(1))

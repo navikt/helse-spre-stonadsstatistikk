@@ -36,8 +36,9 @@ internal class EndToEndTest {
     private val utbetaltDao = UtbetaltDao(dataSource)
     private val vedtakDao = VedtakDao(dataSource)
     private val utbetaltBehovDao = UtbetaltBehovDao(dataSource)
+    private val annulleringDao = AnnulleringDao(dataSource)
     private val kafkaStønadProducer: KafkaProducer<String, String> = mockk(relaxed = true)
-    private val utbetaltService = UtbetaltService(utbetaltDao, dokumentDao, utbetaltBehovDao, kafkaStønadProducer)
+    private val utbetaltService = UtbetaltService(utbetaltDao, dokumentDao, utbetaltBehovDao, annulleringDao, kafkaStønadProducer)
 
     init {
         NyttDokumentRiver(testRapid, dokumentDao)
@@ -105,7 +106,7 @@ internal class EndToEndTest {
                             fom = row.localDate("fom"),
                             tom = row.localDate("tom"),
                             forbrukteSykedager = row.int("forbrukte_sykedager"),
-                            gjenståendeSykedager = row.int("gjenstående_sykedager"),
+                            gjenståendeSykedager = row.int("gjenstaende_sykedager"),
                             maksdato = row.localDate("maksdato"),
                             opprettet = row.localDateTime("opprettet")
                         )
@@ -149,7 +150,7 @@ internal class EndToEndTest {
                             fom = row.localDate("fom"),
                             tom = row.localDate("tom"),
                             forbrukteSykedager = row.int("forbrukte_sykedager"),
-                            gjenståendeSykedager = row.int("gjenstående_sykedager"),
+                            gjenståendeSykedager = row.int("gjenstaende_sykedager"),
                             maksdato = row.localDate("maksdato"),
                             opprettet = row.localDateTime("opprettet")
                         )
@@ -230,8 +231,8 @@ internal class EndToEndTest {
                                 v.sykmelding_id,
                                 v.soknad_id,
                                 v.inntektsmelding_id,
-                                o.totalbeløp            sum,
-                                o.fagsystemid,
+                                o.totalbelop            sum,
+                                o.fagsystem_id,
                                 u.fom                   forste_utbetalingsdag,
                                 u.tom                   siste_utbetalingsdag,
                                 u.grad                  maksgrad,
@@ -242,7 +243,7 @@ internal class EndToEndTest {
                                 v.opprettet             utbetalt_tidspunkt,
                                 v.orgnummer,
                                 v.forbrukte_sykedager,
-                                v.gjenstående_sykedager,
+                                v.gjenstaende_sykedager,
                                 v.fom,
                                 v.tom
                          FROM vedtak v
@@ -267,7 +268,7 @@ internal class EndToEndTest {
                                 ov.opprettet                                                                     utbetalt_tidspunkt,
                                 ov.orgnummer,
                                 ov.forbrukte_sykedager,
-                                ov.gjenstående_sykedager,
+                                ov.gjenstaende_sykedager,
                                 ou2.fom                                                                          fom,
                                 ou2.tom                                                                          tom
                          FROM old_vedtak ov
@@ -287,7 +288,7 @@ internal class EndToEndTest {
                     utbetaltTidspunkt = row.localDateTime("utbetalt_tidspunkt"),
                     orgnummer = row.string("orgnummer"),
                     forbrukteSykedager = row.int("forbrukte_sykedager"),
-                    gjenståendeSykedager = row.intOrNull("gjenstående_sykedager"),
+                    gjenståendeSykedager = row.intOrNull("gjenstaende_sykedager"),
                     fom = row.localDate("fom"),
                     tom = row.localDate("tom")
                 )
@@ -308,7 +309,7 @@ internal class EndToEndTest {
                 utbetaltTidspunkt = LocalDateTime.of(2020, 6, 10, 10, 46, 46, 7000000),
                 orgnummer = ORGNUMMER,
                 forbrukteSykedager = 9,
-                gjenståendeSykedager = null,
+                gjenståendeSykedager = 239,
                 fom = LocalDate.of(2020, 6, 9),
                 tom = LocalDate.of(2020, 6, 20)
             ),
@@ -377,7 +378,7 @@ internal class EndToEndTest {
                             dokumenter = Dokumenter(sykmelding, søknad, inntektsmelding),
                             utbetalinger = emptyList(),
                             forbrukteSykedager = row.int("forbrukte_sykedager"),
-                            gjenståendeSykedager = row.intOrNull("gjenstående_sykedager"),
+                            gjenståendeSykedager = row.intOrNull("gjenstaende_sykedager"),
                             opprettet = row.localDateTime("opprettet")
                         )
                     }.asList
@@ -435,11 +436,11 @@ internal class EndToEndTest {
         )
 
         val capture = CapturingSlot<ProducerRecord<String, String>>()
-
         verify { kafkaStønadProducer.send(capture(capture)) }
+        val record = capture.captured
+        assertEquals("UTBETALING", String(record.headers().headers("type").first().value()))
 
-        val sendtTilStønad = objectMapper.readValue<UtbetaltEvent>(capture.captured.value())
-
+        val sendtTilStønad = objectMapper.readValue<UtbetaltEvent>(record.value())
         val event = UtbetaltEvent(
             fødselsnummer = FNR,
             organisasjonsnummer = ORGNUMMER,
@@ -505,7 +506,11 @@ internal class EndToEndTest {
 
         verify { kafkaStønadProducer.send(capture(capture)) }
 
-        val sendtTilStønad = objectMapper.readValue<UtbetaltEvent>(capture.captured.value())
+        val record = capture.captured
+
+        assertEquals("UTBETALING", String(record.headers().headers("type").first().value()))
+
+        val sendtTilStønad = objectMapper.readValue<UtbetaltEvent>(record.value())
 
         val event = UtbetaltEvent(
             fødselsnummer = FNR,
@@ -569,7 +574,11 @@ internal class EndToEndTest {
 
         verify { kafkaStønadProducer.send(capture(capture)) }
 
-        val sendtTilStønad = objectMapper.readValue<UtbetaltEvent>(capture.captured.value())
+        val record = capture.captured
+
+        assertEquals("UTBETALING", String(record.headers().headers("type").first().value()))
+
+        val sendtTilStønad = objectMapper.readValue<UtbetaltEvent>(record.value())
 
         val event = UtbetaltEvent(
             fødselsnummer = FNR,
@@ -811,7 +820,7 @@ internal class EndToEndTest {
         }
 }
 
-private fun testDataSource(): DataSource {
+fun testDataSource(): DataSource {
     val embeddedPostgres = EmbeddedPostgres.builder().setPort(56789).start()
     val hikariConfig = HikariConfig().apply {
         this.jdbcUrl = embeddedPostgres.getJdbcUrl("postgres", "postgres")
@@ -831,7 +840,7 @@ private fun testDataSource(): DataSource {
 
 }
 
-private fun sendtSøknadMessage(sykmelding: Hendelse, søknad: Hendelse) =
+fun sendtSøknadMessage(sykmelding: Hendelse, søknad: Hendelse) =
     """{
             "@event_name": "sendt_søknad_nav",
             "@id": "${søknad.hendelseId}",
@@ -839,7 +848,7 @@ private fun sendtSøknadMessage(sykmelding: Hendelse, søknad: Hendelse) =
             "sykmeldingId": "${sykmelding.dokumentId}"
         }"""
 
-private fun inntektsmeldingMessage(hendelse: Hendelse) =
+fun inntektsmeldingMessage(hendelse: Hendelse) =
     """{
             "@event_name": "inntektsmelding",
             "@id": "${hendelse.hendelseId}",

@@ -37,7 +37,7 @@ class UtbetaltDao(val datasource: DataSource) {
             fom,
             tom,
             forbrukte_sykedager,
-            gjenstående_sykedager,
+            gjenstaende_sykedager,
             sykmelding_id,
             soknad_id,
             inntektsmelding_id,
@@ -64,7 +64,7 @@ class UtbetaltDao(val datasource: DataSource) {
 
     private fun Session.opprettOppdrag(vedtakKey: Long, oppdragListe: List<UtbetaltEvent.Utbetalt>) {
         @Language("PostgreSQL")
-        val query = """INSERT INTO oppdrag(vedtak_id, mottaker, fagområde, fagsystemid, totalbeløp)
+        val query = """INSERT INTO oppdrag(vedtak_id, mottaker, fagomrade, fagsystem_id, totalbelop)
             VALUES(?,?,?,?,?)"""
         oppdragListe.forEach { oppdrag ->
             val key = run(

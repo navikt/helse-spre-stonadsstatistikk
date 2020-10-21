@@ -17,7 +17,7 @@ CREATE TABLE vedtak
     fom                   DATE      NOT NULL,
     tom                   DATE      NOT NULL,
     forbrukte_sykedager   INTEGER   NOT NULL,
-    gjenstående_sykedager INTEGER   NOT NULL,
+    gjenstaende_sykedager INTEGER   NOT NULL,
     sykmelding_id         UUID      NOT NULL references hendelse (dokument_id),
     soknad_id             UUID      NOT NULL references hendelse (dokument_id),
     inntektsmelding_id    UUID references hendelse (dokument_id)
@@ -25,12 +25,12 @@ CREATE TABLE vedtak
 
 CREATE TABLE oppdrag
 (
-    id          SERIAL PRIMARY KEY,
-    vedtak_id   INTEGER NOT NULL REFERENCES vedtak (id),
-    mottaker    VARCHAR,
-    fagområde   VARCHAR,
-    fagsystemId VARCHAR,
-    totalbeløp  INTEGER
+    id           SERIAL PRIMARY KEY,
+    vedtak_id    INTEGER NOT NULL REFERENCES vedtak (id),
+    mottaker     VARCHAR,
+    fagomrade    VARCHAR,
+    fagsystem_id VARCHAR,
+    totalbelop   INTEGER
 );
 
 

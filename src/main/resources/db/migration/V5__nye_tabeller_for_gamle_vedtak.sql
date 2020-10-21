@@ -6,7 +6,7 @@ CREATE TABLE old_vedtak
     orgnummer             CHAR(9)   NOT NULL,
     opprettet             TIMESTAMP NOT NULL,
     forbrukte_sykedager   INTEGER   NOT NULL,
-    gjenstående_sykedager INTEGER,
+    gjenstaende_sykedager INTEGER,
     sykmelding_id         UUID      NOT NULL,
     soknad_id             UUID      NOT NULL,
     inntektsmelding_id    UUID
