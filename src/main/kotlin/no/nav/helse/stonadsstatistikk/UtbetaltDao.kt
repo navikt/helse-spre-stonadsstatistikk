@@ -38,11 +38,12 @@ class UtbetaltDao(val datasource: DataSource) {
             tom,
             forbrukte_sykedager,
             gjenstaende_sykedager,
+            maksdato,
             sykmelding_id,
             soknad_id,
             inntektsmelding_id,
             hendelse_id)
-            VALUES(?,?,?,?,?,?,?,?,?,?,?)"""
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?)"""
         val key = run(
             queryOf(
                 query,
@@ -53,6 +54,7 @@ class UtbetaltDao(val datasource: DataSource) {
                 vedtak.tom,
                 vedtak.forbrukteSykedager,
                 vedtak.gjenståendeSykedager,
+                vedtak.maksdato,
                 vedtak.sykmeldingId,
                 vedtak.soknadId,
                 vedtak.inntektsmeldingId,
