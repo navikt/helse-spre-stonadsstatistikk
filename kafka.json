@@ -1,0 +1,57 @@
+{
+    "topics": [
+        {
+            "configEntries": {
+                "retention.ms": -1
+            },
+            "members": [
+                {
+                    "member": "srvsprestonad",
+                    "role": "PRODUCER"
+                },
+                {
+                    "member": "srvsprestonad",
+                    "role": "CONSUMER"
+                },
+                {
+                    "member": "S151890",
+                    "role": "MANAGER"
+                },
+                {
+                    "member": "S150563",
+                    "role": "MANAGER"
+                },
+                {
+                    "member": "S149030",
+                    "role": "MANAGER"
+                },
+                {
+                    "member": "E156407",
+                    "role": "MANAGER"
+                },
+                {
+                    "member": "N143409",
+                    "role": "MANAGER"
+                },
+                {
+                    "member": "O142910",
+                    "role": "MANAGER"
+                },
+                {
+                    "member": "S157803",
+                    "role": "MANAGER"
+                },
+                {
+                    "member": "R154509",
+                    "role": "MANAGER"
+                },
+                {
+                    "member": "T141884",
+                    "role": "MANAGER"
+                }
+            ],
+            "numPartitions": 3,
+            "topicName": "aapen-sykepenger-stonadsstatistikk"
+        }
+    ]
+}
