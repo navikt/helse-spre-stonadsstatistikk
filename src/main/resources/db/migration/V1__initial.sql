@@ -55,7 +55,7 @@ CREATE TABLE vedtak_utbetalingsref
     PRIMARY KEY (vedtaksperiode_id)
 );
 
-CREATE INDEX utbetalingsref_idx ON vedtak_utbetalingsref(utbetalingsref);
+CREATE INDEX utbetalingsref_idx ON vedtak_utbetalingsref (utbetalingsref);
 
 CREATE TABLE annullering
 (
