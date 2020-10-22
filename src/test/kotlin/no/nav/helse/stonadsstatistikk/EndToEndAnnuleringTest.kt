@@ -50,9 +50,8 @@ internal class EndToEndAnnuleringTest {
                 DELETE FROM oppdrag;
                 DELETE FROM vedtak;
                 DELETE FROM hendelse;
-                DELETE FROM old_utbetaling;
-                DELETE FROM old_vedtak;
                 DELETE FROM vedtak_utbetalingsref;
+                DELETE FROM annullering;
                 """
             session.run(queryOf(query).asExecute)
         }

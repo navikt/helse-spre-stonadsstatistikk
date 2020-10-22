@@ -32,8 +32,8 @@ class UtbetaltDao(val datasource: DataSource) {
         @Language("PostgreSQL")
         val query = """INSERT INTO vedtak(
             fodselsnummer,
-            orgnummer,
-            opprettet,
+            organisasjonsnummer,
+            sendt_til_utbetaling_tidspunkt,
             fom,
             tom,
             forbrukte_sykedager,
@@ -100,6 +100,55 @@ class UtbetaltDao(val datasource: DataSource) {
                     linje.sykedager
                 ).asUpdate
             )
+        }
+    }
+
+    fun hentUtbetalinger(): List<UtbetaltEvent> {
+        @Language("PostgreSQL")
+        val vedtakQuery = "SELECT * FROM vedtak"
+
+        @Language("PostgreSQL")
+        val oppdragQuery = "SELECT * FROM oppdrag"
+
+        @Language("PostgreSQL")
+        val linjeQuery = "SELECT * FROM utbetaling"
+
+        return sessionOf(datasource, true).use { session ->
+            val linjer = session.run(queryOf(linjeQuery).map {
+                it.int("oppdrag_id") to UtbetaltEvent.Utbetalt.Utbetalingslinje(
+                    fom = it.localDate("fom"),
+                    tom = it.localDate("tom"),
+                    dagsats = it.int("dagsats"),
+                    beløp = it.int("belop"),
+                    grad = it.double("grad"),
+                    sykedager = it.int("sykedager")
+                )
+            }.asList).groupBy({ it.first }) { it.second }
+            val oppdrag = session.run(queryOf(oppdragQuery).map {
+                it.int("vedtak_id") to UtbetaltEvent.Utbetalt(
+                    mottaker = it.string("mottaker"),
+                    fagområde = it.string("fagomrade"),
+                    fagsystemId = it.string("fagsystem_id"),
+                    totalbeløp = it.int("totalbelop"),
+                    utbetalingslinjer = linjer.getOrDefault(it.int("id"), emptyList())
+                )
+            }.asList).groupBy({ it.first }) { it.second }
+            session.run(queryOf(vedtakQuery).map {
+                UtbetaltEvent(
+                    fødselsnummer = it.string("fodselsnummer"),
+                    organisasjonsnummer = it.string("organisasjonsnummer"),
+                    sykmeldingId = UUID.fromString(it.string("sykmelding_id")),
+                    soknadId = UUID.fromString(it.string("soknad_id")),
+                    inntektsmeldingId = it.stringOrNull("inntektsmelding_id")?.let(UUID::fromString),
+                    oppdrag = oppdrag.getOrDefault(it.int("id"), emptyList()),
+                    fom = it.localDate("fom"),
+                    tom = it.localDate("tom"),
+                    forbrukteSykedager = it.int("forbrukte_sykedager"),
+                    gjenståendeSykedager = it.int("gjenstaende_sykedager"),
+                    maksdato = it.localDateOrNull("maksdato"),
+                    sendtTilUtbetalingTidspunkt = it.localDateTime("sendt_til_utbetaling_tidspunkt")
+                )
+            }.asList)
         }
     }
 }

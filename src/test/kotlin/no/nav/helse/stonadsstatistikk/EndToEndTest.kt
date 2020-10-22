@@ -34,7 +34,6 @@ internal class EndToEndTest {
     private val dataSource = testDataSource()
     private val dokumentDao = DokumentDao(dataSource)
     private val utbetaltDao = UtbetaltDao(dataSource)
-    private val vedtakDao = VedtakDao(dataSource)
     private val utbetaltBehovDao = UtbetaltBehovDao(dataSource)
     private val annulleringDao = AnnulleringDao(dataSource)
     private val kafkaStønadProducer: KafkaProducer<String, String> = mockk(relaxed = true)
@@ -63,9 +62,8 @@ internal class EndToEndTest {
                 DELETE FROM oppdrag;
                 DELETE FROM vedtak;
                 DELETE FROM hendelse;
-                DELETE FROM old_utbetaling;
-                DELETE FROM old_vedtak;
                 DELETE FROM vedtak_utbetalingsref;
+                DELETE FROM annullering;
                 """
             session.run(queryOf(query).asExecute)
         }
@@ -91,29 +89,7 @@ internal class EndToEndTest {
             )
         )
 
-        val vedtak = sessionOf(dataSource).use { session ->
-            @Language("PostgreSQL")
-            val query = "SELECT * FROM vedtak"
-            session.run(
-                queryOf(query)
-                    .map { row ->
-                        Vedtak(
-                            hendelseId = hendelseId,
-                            fødselsnummer = row.string("fodselsnummer"),
-                            orgnummer = row.string("orgnummer"),
-                            dokumenter = Dokumenter(sykmelding, søknad, inntektsmelding),
-                            oppdrag = emptyList(),
-                            fom = row.localDate("fom"),
-                            tom = row.localDate("tom"),
-                            forbrukteSykedager = row.int("forbrukte_sykedager"),
-                            gjenståendeSykedager = row.int("gjenstaende_sykedager"),
-                            maksdato = row.localDate("maksdato"),
-                            opprettet = row.localDateTime("opprettet")
-                        )
-                    }.asList
-            )
-        }
-
+        val vedtak = utbetaltDao.hentUtbetalinger()
         assertEquals(1, vedtak.size)
     }
 
@@ -135,29 +111,7 @@ internal class EndToEndTest {
             )
         )
 
-        val vedtak = sessionOf(dataSource).use { session ->
-            @Language("PostgreSQL")
-            val query = "SELECT * FROM vedtak"
-            session.run(
-                queryOf(query)
-                    .map { row ->
-                        Vedtak(
-                            hendelseId = hendelseId,
-                            fødselsnummer = row.string("fodselsnummer"),
-                            orgnummer = row.string("orgnummer"),
-                            dokumenter = Dokumenter(sykmelding, søknad, null),
-                            oppdrag = emptyList(),
-                            fom = row.localDate("fom"),
-                            tom = row.localDate("tom"),
-                            forbrukteSykedager = row.int("forbrukte_sykedager"),
-                            gjenståendeSykedager = row.int("gjenstaende_sykedager"),
-                            maksdato = row.localDate("maksdato"),
-                            opprettet = row.localDateTime("opprettet")
-                        )
-                    }.asList
-            )
-        }
-
+        val vedtak = utbetaltDao.hentUtbetalinger()
         assertEquals(1, vedtak.size)
 
     }
@@ -227,7 +181,7 @@ internal class EndToEndTest {
 
         val rapport = sessionOf(dataSource).use { session ->
             @Language("PostgreSQL")
-            val query = """(SELECT v.fodselsnummer,
+            val query = """SELECT v.fodselsnummer,
                                 v.sykmelding_id,
                                 v.soknad_id,
                                 v.inntektsmelding_id,
@@ -240,39 +194,15 @@ internal class EndToEndTest {
                                 u.dagsats,
                                 u.sykedager,
                                 (u.belop * u.sykedager) totalbelop,
-                                v.opprettet             utbetalt_tidspunkt,
-                                v.orgnummer,
+                                v.sendt_til_utbetaling_tidspunkt             utbetalt_tidspunkt,
+                                v.organisasjonsnummer,
                                 v.forbrukte_sykedager,
                                 v.gjenstaende_sykedager,
                                 v.fom,
                                 v.tom
                          FROM vedtak v
                                   INNER JOIN oppdrag o on v.id = o.vedtak_id
-                                  INNER JOIN utbetaling u on o.id = u.oppdrag_id)
-                        UNION ALL
-                        (SELECT ov.fodselsnummer,
-                                ov.sykmelding_id,
-                                ov.soknad_id,
-                                ov.inntektsmelding_id,
-                                (SELECT sum(ou3.totalbelop) FROM old_utbetaling ou3 WHERE ou3.vedtak_id = ov.id) sum,
-                                (SELECT distinct vu.utbetalingsref
-                                 FROM vedtak_utbetalingsref vu
-                                 WHERE vu.vedtaksperiode_id = ov.vedtaksperiode_id)                              fagsystemId,
-                                ou2.fom                                                                          forste_utbetalingsdag,
-                                ou2.tom                                                                          siste_utbetalingsdag,
-                                ou2.grad                                                                         maksgrad,
-                                ou2.belop,
-                                ou2.dagsats,
-                                (ou2.totalbelop / ou2.belop)                                                     sykedager,
-                                ou2.totalbelop,
-                                ov.opprettet                                                                     utbetalt_tidspunkt,
-                                ov.orgnummer,
-                                ov.forbrukte_sykedager,
-                                ov.gjenstaende_sykedager,
-                                ou2.fom                                                                          fom,
-                                ou2.tom                                                                          tom
-                         FROM old_vedtak ov
-                                  INNER JOIN old_utbetaling ou2 on ov.id = ou2.vedtak_id)
+                                  INNER JOIN utbetaling u on o.id = u.oppdrag_id
                         ORDER BY utbetalt_tidspunkt, forste_utbetalingsdag, siste_utbetalingsdag
                 """
             session.run(queryOf(query).map { row ->
@@ -286,7 +216,7 @@ internal class EndToEndTest {
                     sum = row.int("sum"),
                     maksgrad = row.double("maksgrad"),
                     utbetaltTidspunkt = row.localDateTime("utbetalt_tidspunkt"),
-                    orgnummer = row.string("orgnummer"),
+                    orgnummer = row.string("organisasjonsnummer"),
                     forbrukteSykedager = row.int("forbrukte_sykedager"),
                     gjenståendeSykedager = row.intOrNull("gjenstaende_sykedager"),
                     fom = row.localDate("fom"),
@@ -365,46 +295,10 @@ internal class EndToEndTest {
             )
         )
 
-        val vedtak = sessionOf(dataSource).use { session ->
-            @Language("PostgreSQL")
-            val query = "SELECT * FROM old_vedtak"
-            session.run(
-                queryOf(query)
-                    .map { row ->
-                        OldVedtak(
-                            vedtaksperiodeId = UUID.fromString(row.string("vedtaksperiode_id")),
-                            fødselsnummer = row.string("fodselsnummer"),
-                            orgnummer = row.string("orgnummer"),
-                            dokumenter = Dokumenter(sykmelding, søknad, inntektsmelding),
-                            utbetalinger = emptyList(),
-                            forbrukteSykedager = row.int("forbrukte_sykedager"),
-                            gjenståendeSykedager = row.intOrNull("gjenstaende_sykedager"),
-                            opprettet = row.localDateTime("opprettet")
-                        )
-                    }.asList
-            )
-        }
+        val vedtak = utbetaltDao.hentUtbetalinger()
+        assertEquals(fagsystemId, vedtak.first().oppdrag.first().fagsystemId)
 
-        assertEquals(vedtaksperiodeId, vedtak.first().vedtaksperiodeId)
-
-        val utbetalinger = sessionOf(dataSource).use { session ->
-            @Language("PostgreSQL")
-            val query = "SELECT * FROM old_utbetaling"
-            session.run(
-                queryOf(query)
-                    .map { row ->
-                        OldUtbetaling(
-                            fom = row.localDate("fom"),
-                            tom = row.localDate("tom"),
-                            grad = row.double("grad"),
-                            dagsats = row.int("dagsats"),
-                            beløp = row.int("belop"),
-                            totalbeløp = row.int("totalbelop")
-                        )
-                    }.asList
-            )
-        }
-
+        val utbetalinger = vedtak.first().oppdrag.first().utbetalingslinjer
 
         assertEquals(1, utbetalinger.size)
         val utbetaling = utbetalinger.first()
@@ -413,7 +307,7 @@ internal class EndToEndTest {
         assertEquals(100.0, utbetaling.grad)
         assertEquals(1431, utbetaling.dagsats)
         assertEquals(1431, utbetaling.beløp)
-        assertEquals(12879, utbetaling.totalbeløp)
+        assertEquals(12879, vedtak.first().oppdrag.first().totalbeløp)
     }
 
     @Test

@@ -10,19 +10,19 @@ CREATE INDEX hendelse_hendelse_id_idx ON hendelse (hendelse_id);
 
 CREATE TABLE vedtak
 (
-    id                    SERIAL PRIMARY KEY,
-    fodselsnummer         CHAR(11)  NOT NULL,
-    orgnummer             CHAR(9)   NOT NULL,
-    opprettet             TIMESTAMP NOT NULL,
-    fom                   DATE      NOT NULL,
-    tom                   DATE      NOT NULL,
-    forbrukte_sykedager   INTEGER   NOT NULL,
-    gjenstaende_sykedager INTEGER   NOT NULL,
-    maksdato              DATE,
-    sykmelding_id         UUID      NOT NULL,
-    soknad_id             UUID      NOT NULL,
-    inntektsmelding_id    UUID,
-    hendelse_id           UUID      NOT NULL
+    id                             SERIAL PRIMARY KEY,
+    fodselsnummer                  CHAR(11)  NOT NULL,
+    organisasjonsnummer            CHAR(9)   NOT NULL,
+    sendt_til_utbetaling_tidspunkt TIMESTAMP NOT NULL,
+    fom                            DATE      NOT NULL,
+    tom                            DATE      NOT NULL,
+    forbrukte_sykedager            INTEGER   NOT NULL,
+    gjenstaende_sykedager          INTEGER   NOT NULL,
+    maksdato                       DATE,
+    sykmelding_id                  UUID      NOT NULL,
+    soknad_id                      UUID      NOT NULL,
+    inntektsmelding_id             UUID,
+    hendelse_id                    UUID      NOT NULL
 );
 
 CREATE TABLE oppdrag
@@ -45,32 +45,6 @@ CREATE TABLE utbetaling
     grad       DECIMAL NOT NULL,
     belop      INTEGER NOT NULL,
     sykedager  INTEGER NOT NULL
-);
-
-CREATE TABLE old_vedtak
-(
-    id                    SERIAL PRIMARY KEY,
-    vedtaksperiode_id     UUID      NOT NULL,
-    fodselsnummer         CHAR(11)  NOT NULL,
-    orgnummer             CHAR(9)   NOT NULL,
-    opprettet             TIMESTAMP NOT NULL,
-    forbrukte_sykedager   INTEGER   NOT NULL,
-    gjenstaende_sykedager INTEGER,
-    sykmelding_id         UUID      NOT NULL,
-    soknad_id             UUID      NOT NULL,
-    inntektsmelding_id    UUID
-);
-
-CREATE TABLE old_utbetaling
-(
-    id         SERIAL PRIMARY KEY,
-    vedtak_id  INTEGER NOT NULL REFERENCES old_vedtak (id),
-    fom        DATE    NOT NULL,
-    tom        DATE    NOT NULL,
-    grad       DECIMAL NOT NULL,
-    dagsats    INTEGER NOT NULL,
-    belop      INTEGER NOT NULL,
-    totalbelop INTEGER NOT NULL
 );
 
 CREATE TABLE vedtak_utbetalingsref
