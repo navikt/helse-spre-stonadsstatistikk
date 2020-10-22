@@ -19,7 +19,7 @@ internal class UtbetaltService(
         val stønad: UtbetaltEvent = vedtak.toUtbetalt(dokumenter)
         utbetaltDao.opprett(vedtak.hendelseId, stønad)
         stønadProducer.send(ProducerRecord(
-            "aapen-sykepenger-stønad",
+            "aapen-sykepenger-stonadsstatistikk",
             null,
             vedtak.fødselsnummer,
             objectMapper.writeValueAsString(stønad),
@@ -65,7 +65,7 @@ internal class UtbetaltService(
         val stønad: UtbetaltEvent = vedtak.toUtbetalt(dokumenter, maksdato)
         utbetaltDao.opprett(vedtak.hendelseId, stønad)
         stønadProducer.send(ProducerRecord(
-            "aapen-sykepenger-stønad",
+            "aapen-sykepenger-stonadsstatistikk",
             null,
             vedtak.fødselsnummer,
             objectMapper.writeValueAsString(stønad),
@@ -111,7 +111,7 @@ internal class UtbetaltService(
         val stønad: UtbetaltEvent = vedtak.toUtbetalt(dokumenter, fagsystemId, maksdato)
         utbetaltDao.opprett(vedtak.hendelseId, stønad)
         stønadProducer.send(ProducerRecord(
-            "aapen-sykepenger-stønad",
+            "aapen-sykepenger-stonadsstatistikk",
             null,
             vedtak.fødselsnummer,
             objectMapper.writeValueAsString(stønad),
@@ -155,7 +155,7 @@ internal class UtbetaltService(
     internal fun håndter(annullering: Annullering) {
         annulleringDao.opprett(annullering)
         stønadProducer.send(ProducerRecord(
-            "aapen-sykepenger-stønad",
+            "aapen-sykepenger-stonadsstatistikk",
             null,
             annullering.fødselsnummer,
             objectMapper.writeValueAsString(annullering),
