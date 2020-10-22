@@ -70,50 +70,205 @@ internal class EndToEndTest {
     }
 
     @Test
-    fun `lagrer vedtak`() {
-        val søknadHendelseId = UUID.randomUUID()
-        val sykmelding = Hendelse(UUID.randomUUID(), søknadHendelseId, Dokument.Sykmelding)
-        val søknad = Hendelse(UUID.randomUUID(), søknadHendelseId, Dokument.Søknad)
-        val inntektsmelding = Hendelse(UUID.randomUUID(), UUID.randomUUID(), Dokument.Inntektsmelding)
-        testRapid.sendTestMessage(sendtSøknadMessage(sykmelding, søknad))
-        testRapid.sendTestMessage(inntektsmeldingMessage(inntektsmelding))
-
-        val hendelseId = UUID.randomUUID()
+    fun `Dagens situasjon`() {
+        val nyttVedtakSøknadHendelseId = UUID.randomUUID()
+        val nyttVedtakSykmelding = Hendelse(UUID.randomUUID(), nyttVedtakSøknadHendelseId, Dokument.Sykmelding)
+        val nyttVedtakSøknad = Hendelse(UUID.randomUUID(), nyttVedtakSøknadHendelseId, Dokument.Søknad)
+        val nyttVedtakInntektsmelding = Hendelse(UUID.randomUUID(), UUID.randomUUID(), Dokument.Inntektsmelding)
+        testRapid.sendTestMessage(sendtSøknadMessage(nyttVedtakSykmelding, nyttVedtakSøknad))
+        testRapid.sendTestMessage(inntektsmeldingMessage(nyttVedtakInntektsmelding))
+        val nyttVedtakHendelseId = UUID.randomUUID()
         testRapid.sendTestMessage(
             utbetalingMessage(
-                hendelseId,
-                LocalDate.of(2020, 6, 1),
-                LocalDate.of(2020, 6, 8),
+                nyttVedtakHendelseId,
+                LocalDate.of(2020, 7, 1),
+                LocalDate.of(2020, 7, 8),
                 0,
-                listOf(sykmelding, søknad, inntektsmelding)
+                listOf(nyttVedtakSykmelding, nyttVedtakSøknad, nyttVedtakInntektsmelding)
             )
         )
 
-        val vedtak = utbetaltDao.hentUtbetalinger()
-        assertEquals(1, vedtak.size)
+        val capture = CapturingSlot<ProducerRecord<String, String>>()
+        verify { kafkaStønadProducer.send(capture(capture)) }
+        val record = capture.captured
+        assertEquals("UTBETALING", String(record.headers().headers("type").first().value()))
+
+        val sendtTilStønad = objectMapper.readValue<UtbetaltEvent>(record.value())
+        val event = UtbetaltEvent(
+            fødselsnummer = FNR,
+            organisasjonsnummer = ORGNUMMER,
+            sykmeldingId = nyttVedtakSykmelding.dokumentId,
+            soknadId = nyttVedtakSøknad.dokumentId,
+            inntektsmeldingId = nyttVedtakInntektsmelding.dokumentId,
+            oppdrag = listOf(UtbetaltEvent.Utbetalt(
+                mottaker = ORGNUMMER,
+                fagområde = "SPREF",
+                fagsystemId = "77ATRH3QENHB5K4XUY4LQ7HRTY",
+                totalbeløp = 8586,
+                utbetalingslinjer = listOf(UtbetaltEvent.Utbetalt.Utbetalingslinje(
+                    fom = LocalDate.of(2020, 7, 1),
+                    tom = LocalDate.of(2020, 7, 8),
+                    dagsats = 1431,
+                    beløp = 1431,
+                    grad = 100.0,
+                    sykedager = 6
+                ))
+            )),
+            fom = LocalDate.of(2020, 7, 1),
+            tom = LocalDate.of(2020, 7, 8),
+            forbrukteSykedager = 6,
+            gjenståendeSykedager = 242,
+            maksdato = LocalDate.of(2021, 6, 11),
+            sendtTilUtbetalingTidspunkt = sendtTilStønad.sendtTilUtbetalingTidspunkt
+        )
+
+        val lagretVedtak = utbetaltDao.hentUtbetalinger().first()
+        assertEquals(event, lagretVedtak)
     }
 
     @Test
-    fun `lagrer vedtak uten inntektsmelding`() {
-        val søknadHendelseId = UUID.randomUUID()
-        val sykmelding = Hendelse(UUID.randomUUID(), søknadHendelseId, Dokument.Sykmelding)
-        val søknad = Hendelse(UUID.randomUUID(), søknadHendelseId, Dokument.Søknad)
-        testRapid.sendTestMessage(sendtSøknadMessage(sykmelding, søknad))
-
-        val hendelseId = UUID.randomUUID()
+    fun `Utbetalingsevent uten maksdato`() {
+        val nyttVedtakSøknadHendelseId = UUID.randomUUID()
+        val nyttVedtakSykmelding = Hendelse(UUID.randomUUID(), nyttVedtakSøknadHendelseId, Dokument.Sykmelding)
+        val nyttVedtakSøknad = Hendelse(UUID.randomUUID(), nyttVedtakSøknadHendelseId, Dokument.Søknad)
+        val nyttVedtakInntektsmelding = Hendelse(UUID.randomUUID(), UUID.randomUUID(), Dokument.Inntektsmelding)
+        testRapid.sendTestMessage(sendtSøknadMessage(nyttVedtakSykmelding, nyttVedtakSøknad))
+        testRapid.sendTestMessage(inntektsmeldingMessage(nyttVedtakInntektsmelding))
+        val vedtaksperiodeId = UUID.randomUUID()
+        val fagsystemId = "VNDG2PFPMNB4FKMC4ORASZ2JJ4"
         testRapid.sendTestMessage(
-            utbetalingMessage(
-                hendelseId,
-                LocalDate.of(2020, 6, 1),
-                LocalDate.of(2020, 6, 8),
+            utbetalingBehov(
+                vedtaksperiodeId,
+                fagsystemId,
+                LocalDate.of(2020, 7, 1),
+                LocalDate.of(2020, 7, 8)
+            )
+        )
+        val nyttVedtakHendelseId = UUID.randomUUID()
+        testRapid.sendTestMessage(
+            utbetalingMessageUtenMaksdato(
+                nyttVedtakHendelseId,
+                LocalDate.of(2020, 7, 1),
+                LocalDate.of(2020, 7, 8),
                 0,
-                listOf(sykmelding, søknad)
+                listOf(nyttVedtakSykmelding, nyttVedtakSøknad, nyttVedtakInntektsmelding),
+                fagsystemId
             )
         )
 
-        val vedtak = utbetaltDao.hentUtbetalinger()
-        assertEquals(1, vedtak.size)
+        val capture = CapturingSlot<ProducerRecord<String, String>>()
 
+        verify { kafkaStønadProducer.send(capture(capture)) }
+
+        val record = capture.captured
+
+        assertEquals("UTBETALING", String(record.headers().headers("type").first().value()))
+
+        val sendtTilStønad = objectMapper.readValue<UtbetaltEvent>(record.value())
+
+        val event = UtbetaltEvent(
+            fødselsnummer = FNR,
+            organisasjonsnummer = ORGNUMMER,
+            sykmeldingId = nyttVedtakSykmelding.dokumentId,
+            soknadId = nyttVedtakSøknad.dokumentId,
+            inntektsmeldingId = nyttVedtakInntektsmelding.dokumentId,
+            oppdrag = listOf(UtbetaltEvent.Utbetalt(
+                mottaker = ORGNUMMER,
+                fagområde = "SPREF",
+                fagsystemId = fagsystemId,
+                totalbeløp = 8586,
+                utbetalingslinjer = listOf(UtbetaltEvent.Utbetalt.Utbetalingslinje(
+                    fom = LocalDate.of(2020, 7, 1),
+                    tom = LocalDate.of(2020, 7, 8),
+                    dagsats = 1431,
+                    beløp = 1431,
+                    grad = 100.0,
+                    sykedager = 6
+                ))
+            )),
+            fom = LocalDate.of(2020, 7, 1),
+            tom = LocalDate.of(2020, 7, 8),
+            forbrukteSykedager = 6,
+            gjenståendeSykedager = 242,
+            maksdato = LocalDate.of(2021, 6, 11),
+            sendtTilUtbetalingTidspunkt = sendtTilStønad.sendtTilUtbetalingTidspunkt
+        )
+
+        assertEquals(event, sendtTilStønad)
+
+        val lagretVedtak = utbetaltDao.hentUtbetalinger().first()
+        assertEquals(event, lagretVedtak)
+    }
+
+    @Test
+    fun `Gammelt utbetalingsevent`() {
+        val nyttVedtakSøknadHendelseId = UUID.randomUUID()
+        val nyttVedtakSykmelding = Hendelse(UUID.randomUUID(), nyttVedtakSøknadHendelseId, Dokument.Sykmelding)
+        val nyttVedtakSøknad = Hendelse(UUID.randomUUID(), nyttVedtakSøknadHendelseId, Dokument.Søknad)
+        val nyttVedtakInntektsmelding = Hendelse(UUID.randomUUID(), UUID.randomUUID(), Dokument.Inntektsmelding)
+        testRapid.sendTestMessage(sendtSøknadMessage(nyttVedtakSykmelding, nyttVedtakSøknad))
+        testRapid.sendTestMessage(inntektsmeldingMessage(nyttVedtakInntektsmelding))
+        val vedtaksperiodeId = UUID.randomUUID()
+        val fagsystemId = "VNDG2PFPMNB4FKMC4ORASZ2JJ4"
+        testRapid.sendTestMessage(
+            utbetalingBehov(
+                vedtaksperiodeId,
+                fagsystemId,
+                LocalDate.of(2020, 7, 1),
+                LocalDate.of(2020, 7, 8)
+            )
+        )
+        testRapid.sendTestMessage(
+            vedtakMedUtbetalingslinjernøkkel(
+                LocalDate.of(2020, 7, 1),
+                LocalDate.of(2020, 7, 8),
+                vedtaksperiodeId,
+                listOf(nyttVedtakSykmelding, nyttVedtakSøknad, nyttVedtakInntektsmelding)
+            )
+        )
+
+        val capture = CapturingSlot<ProducerRecord<String, String>>()
+
+        verify { kafkaStønadProducer.send(capture(capture)) }
+
+        val record = capture.captured
+
+        assertEquals("UTBETALING", String(record.headers().headers("type").first().value()))
+
+        val sendtTilStønad = objectMapper.readValue<UtbetaltEvent>(record.value())
+
+        val event = UtbetaltEvent(
+            fødselsnummer = FNR,
+            organisasjonsnummer = ORGNUMMER,
+            sykmeldingId = nyttVedtakSykmelding.dokumentId,
+            soknadId = nyttVedtakSøknad.dokumentId,
+            inntektsmeldingId = nyttVedtakInntektsmelding.dokumentId,
+            oppdrag = listOf(UtbetaltEvent.Utbetalt(
+                mottaker = ORGNUMMER,
+                fagområde = "SPREF",
+                fagsystemId = fagsystemId,
+                totalbeløp = 8586,
+                utbetalingslinjer = listOf(UtbetaltEvent.Utbetalt.Utbetalingslinje(
+                    fom = LocalDate.of(2020, 7, 1),
+                    tom = LocalDate.of(2020, 7, 8),
+                    dagsats = 1431,
+                    beløp = 1431,
+                    grad = 100.0,
+                    sykedager = 6
+                ))
+            )),
+            fom = LocalDate.of(2020, 7, 1),
+            tom = LocalDate.of(2020, 7, 8),
+            forbrukteSykedager = 6,
+            gjenståendeSykedager = 242,
+            maksdato = LocalDate.of(2021, 6, 11),
+            sendtTilUtbetalingTidspunkt = sendtTilStønad.sendtTilUtbetalingTidspunkt
+        )
+
+        assertEquals(event, sendtTilStønad)
+
+        val lagretVedtak = utbetaltDao.hentUtbetalinger().first()
+        assertEquals(event, lagretVedtak)
     }
 
     @Test
@@ -268,243 +423,6 @@ internal class EndToEndTest {
 
     }
 
-    @Test
-    fun `leser vedtak på gamle versjoner`() {
-        val søknadHendelseId = UUID.randomUUID()
-        val sykmelding = Hendelse(UUID.randomUUID(), søknadHendelseId, Dokument.Sykmelding)
-        val søknad = Hendelse(UUID.randomUUID(), søknadHendelseId, Dokument.Søknad)
-        val inntektsmelding = Hendelse(UUID.randomUUID(), UUID.randomUUID(), Dokument.Inntektsmelding)
-        testRapid.sendTestMessage(sendtSøknadMessage(sykmelding, søknad))
-        testRapid.sendTestMessage(inntektsmeldingMessage(inntektsmelding))
-        val vedtaksperiodeId = UUID.randomUUID()
-        val fagsystemId = "VNDG2PFPMNB4FKMC4ORASZ2JJ4"
-        testRapid.sendTestMessage(
-            utbetalingBehov(
-                vedtaksperiodeId,
-                fagsystemId,
-                LocalDate.of(2020, 6, 9),
-                LocalDate.of(2020, 6, 20)
-            )
-        )
-        testRapid.sendTestMessage(
-            vedtakMedUtbetalingslinjernøkkel(
-                LocalDate.of(2020, 6, 9),
-                LocalDate.of(2020, 6, 20),
-                vedtaksperiodeId,
-                listOf(sykmelding, søknad, inntektsmelding)
-            )
-        )
-
-        val vedtak = utbetaltDao.hentUtbetalinger()
-        assertEquals(fagsystemId, vedtak.first().oppdrag.first().fagsystemId)
-
-        val utbetalinger = vedtak.first().oppdrag.first().utbetalingslinjer
-
-        assertEquals(1, utbetalinger.size)
-        val utbetaling = utbetalinger.first()
-        assertEquals(LocalDate.of(2020, 6, 9), utbetaling.fom)
-        assertEquals(LocalDate.of(2020, 6, 20), utbetaling.tom)
-        assertEquals(100.0, utbetaling.grad)
-        assertEquals(1431, utbetaling.dagsats)
-        assertEquals(1431, utbetaling.beløp)
-        assertEquals(12879, vedtak.first().oppdrag.first().totalbeløp)
-    }
-
-    @Test
-    fun `Dagens situasjon`() {
-        val nyttVedtakSøknadHendelseId = UUID.randomUUID()
-        val nyttVedtakSykmelding = Hendelse(UUID.randomUUID(), nyttVedtakSøknadHendelseId, Dokument.Sykmelding)
-        val nyttVedtakSøknad = Hendelse(UUID.randomUUID(), nyttVedtakSøknadHendelseId, Dokument.Søknad)
-        val nyttVedtakInntektsmelding = Hendelse(UUID.randomUUID(), UUID.randomUUID(), Dokument.Inntektsmelding)
-        testRapid.sendTestMessage(sendtSøknadMessage(nyttVedtakSykmelding, nyttVedtakSøknad))
-        testRapid.sendTestMessage(inntektsmeldingMessage(nyttVedtakInntektsmelding))
-        val nyttVedtakHendelseId = UUID.randomUUID()
-        testRapid.sendTestMessage(
-            utbetalingMessage(
-                nyttVedtakHendelseId,
-                LocalDate.of(2020, 7, 1),
-                LocalDate.of(2020, 7, 8),
-                0,
-                listOf(nyttVedtakSykmelding, nyttVedtakSøknad, nyttVedtakInntektsmelding)
-            )
-        )
-
-        val capture = CapturingSlot<ProducerRecord<String, String>>()
-        verify { kafkaStønadProducer.send(capture(capture)) }
-        val record = capture.captured
-        assertEquals("UTBETALING", String(record.headers().headers("type").first().value()))
-
-        val sendtTilStønad = objectMapper.readValue<UtbetaltEvent>(record.value())
-        val event = UtbetaltEvent(
-            fødselsnummer = FNR,
-            organisasjonsnummer = ORGNUMMER,
-            sykmeldingId = nyttVedtakSykmelding.dokumentId,
-            soknadId = nyttVedtakSøknad.dokumentId,
-            inntektsmeldingId = nyttVedtakInntektsmelding.dokumentId,
-            oppdrag = listOf(UtbetaltEvent.Utbetalt(
-                mottaker = ORGNUMMER,
-                fagområde = "SPREF",
-                fagsystemId = "77ATRH3QENHB5K4XUY4LQ7HRTY",
-                totalbeløp = 8586,
-                utbetalingslinjer = listOf(UtbetaltEvent.Utbetalt.Utbetalingslinje(
-                    fom = LocalDate.of(2020, 7, 1),
-                    tom = LocalDate.of(2020, 7, 8),
-                    dagsats = 1431,
-                    beløp = 1431,
-                    grad = 100.0,
-                    sykedager = 6
-                ))
-            )),
-            fom = LocalDate.of(2020, 7, 1),
-            tom = LocalDate.of(2020, 7, 8),
-            forbrukteSykedager = 6,
-            gjenståendeSykedager = 242,
-            maksdato = LocalDate.of(2021, 6, 11),
-            sendtTilUtbetalingTidspunkt = sendtTilStønad.sendtTilUtbetalingTidspunkt
-        )
-
-        assertEquals(event, sendtTilStønad)
-    }
-
-    @Test
-    fun `Utbetalingsevent uten maksdato`() {
-        val nyttVedtakSøknadHendelseId = UUID.randomUUID()
-        val nyttVedtakSykmelding = Hendelse(UUID.randomUUID(), nyttVedtakSøknadHendelseId, Dokument.Sykmelding)
-        val nyttVedtakSøknad = Hendelse(UUID.randomUUID(), nyttVedtakSøknadHendelseId, Dokument.Søknad)
-        val nyttVedtakInntektsmelding = Hendelse(UUID.randomUUID(), UUID.randomUUID(), Dokument.Inntektsmelding)
-        testRapid.sendTestMessage(sendtSøknadMessage(nyttVedtakSykmelding, nyttVedtakSøknad))
-        testRapid.sendTestMessage(inntektsmeldingMessage(nyttVedtakInntektsmelding))
-        val vedtaksperiodeId = UUID.randomUUID()
-        val fagsystemId = "VNDG2PFPMNB4FKMC4ORASZ2JJ4"
-        testRapid.sendTestMessage(
-            utbetalingBehov(
-                vedtaksperiodeId,
-                fagsystemId,
-                LocalDate.of(2020, 7, 1),
-                LocalDate.of(2020, 7, 8)
-            )
-        )
-        val nyttVedtakHendelseId = UUID.randomUUID()
-        testRapid.sendTestMessage(
-            utbetalingMessageUtenMaksdato(
-                nyttVedtakHendelseId,
-                LocalDate.of(2020, 7, 1),
-                LocalDate.of(2020, 7, 8),
-                0,
-                listOf(nyttVedtakSykmelding, nyttVedtakSøknad, nyttVedtakInntektsmelding),
-                fagsystemId
-            )
-        )
-
-        val capture = CapturingSlot<ProducerRecord<String, String>>()
-
-        verify { kafkaStønadProducer.send(capture(capture)) }
-
-        val record = capture.captured
-
-        assertEquals("UTBETALING", String(record.headers().headers("type").first().value()))
-
-        val sendtTilStønad = objectMapper.readValue<UtbetaltEvent>(record.value())
-
-        val event = UtbetaltEvent(
-            fødselsnummer = FNR,
-            organisasjonsnummer = ORGNUMMER,
-            sykmeldingId = nyttVedtakSykmelding.dokumentId,
-            soknadId = nyttVedtakSøknad.dokumentId,
-            inntektsmeldingId = nyttVedtakInntektsmelding.dokumentId,
-            oppdrag = listOf(UtbetaltEvent.Utbetalt(
-                mottaker = ORGNUMMER,
-                fagområde = "SPREF",
-                fagsystemId = fagsystemId,
-                totalbeløp = 8586,
-                utbetalingslinjer = listOf(UtbetaltEvent.Utbetalt.Utbetalingslinje(
-                    fom = LocalDate.of(2020, 7, 1),
-                    tom = LocalDate.of(2020, 7, 8),
-                    dagsats = 1431,
-                    beløp = 1431,
-                    grad = 100.0,
-                    sykedager = 6
-                ))
-            )),
-            fom = LocalDate.of(2020, 7, 1),
-            tom = LocalDate.of(2020, 7, 8),
-            forbrukteSykedager = 6,
-            gjenståendeSykedager = 242,
-            maksdato = LocalDate.of(2021, 6, 11),
-            sendtTilUtbetalingTidspunkt = sendtTilStønad.sendtTilUtbetalingTidspunkt
-        )
-
-        assertEquals(event, sendtTilStønad)
-    }
-
-    @Test
-    fun `Gammelt utbetalingsevent`() {
-        val nyttVedtakSøknadHendelseId = UUID.randomUUID()
-        val nyttVedtakSykmelding = Hendelse(UUID.randomUUID(), nyttVedtakSøknadHendelseId, Dokument.Sykmelding)
-        val nyttVedtakSøknad = Hendelse(UUID.randomUUID(), nyttVedtakSøknadHendelseId, Dokument.Søknad)
-        val nyttVedtakInntektsmelding = Hendelse(UUID.randomUUID(), UUID.randomUUID(), Dokument.Inntektsmelding)
-        testRapid.sendTestMessage(sendtSøknadMessage(nyttVedtakSykmelding, nyttVedtakSøknad))
-        testRapid.sendTestMessage(inntektsmeldingMessage(nyttVedtakInntektsmelding))
-        val vedtaksperiodeId = UUID.randomUUID()
-        val fagsystemId = "VNDG2PFPMNB4FKMC4ORASZ2JJ4"
-        testRapid.sendTestMessage(
-            utbetalingBehov(
-                vedtaksperiodeId,
-                fagsystemId,
-                LocalDate.of(2020, 7, 1),
-                LocalDate.of(2020, 7, 8)
-            )
-        )
-        testRapid.sendTestMessage(
-            vedtakMedUtbetalingslinjernøkkel(
-                LocalDate.of(2020, 7, 1),
-                LocalDate.of(2020, 7, 8),
-                vedtaksperiodeId,
-                listOf(nyttVedtakSykmelding, nyttVedtakSøknad, nyttVedtakInntektsmelding)
-            )
-        )
-
-        val capture = CapturingSlot<ProducerRecord<String, String>>()
-
-        verify { kafkaStønadProducer.send(capture(capture)) }
-
-        val record = capture.captured
-
-        assertEquals("UTBETALING", String(record.headers().headers("type").first().value()))
-
-        val sendtTilStønad = objectMapper.readValue<UtbetaltEvent>(record.value())
-
-        val event = UtbetaltEvent(
-            fødselsnummer = FNR,
-            organisasjonsnummer = ORGNUMMER,
-            sykmeldingId = nyttVedtakSykmelding.dokumentId,
-            soknadId = nyttVedtakSøknad.dokumentId,
-            inntektsmeldingId = nyttVedtakInntektsmelding.dokumentId,
-            oppdrag = listOf(UtbetaltEvent.Utbetalt(
-                mottaker = ORGNUMMER,
-                fagområde = "SPREF",
-                fagsystemId = fagsystemId,
-                totalbeløp = 8586,
-                utbetalingslinjer = listOf(UtbetaltEvent.Utbetalt.Utbetalingslinje(
-                    fom = LocalDate.of(2020, 7, 1),
-                    tom = LocalDate.of(2020, 7, 8),
-                    dagsats = 1431,
-                    beløp = 1431,
-                    grad = 100.0,
-                    sykedager = 6
-                ))
-            )),
-            fom = LocalDate.of(2020, 7, 1),
-            tom = LocalDate.of(2020, 7, 8),
-            forbrukteSykedager = 6,
-            gjenståendeSykedager = 242,
-            maksdato = LocalDate.of(2021, 6, 11),
-            sendtTilUtbetalingTidspunkt = sendtTilStønad.sendtTilUtbetalingTidspunkt
-        )
-
-        assertEquals(event, sendtTilStønad)
-    }
-
     @Language("JSON")
     private fun utbetalingMessage(
         hendelseId: UUID,
@@ -553,7 +471,7 @@ internal class EndToEndTest {
     "system_read_count": 0,
     "@event_name": "utbetalt",
     "@id": "$hendelseId",
-    "@opprettet": "2020-05-04T11:27:13.521398",
+    "@opprettet": "2020-05-04T11:27:13.521000",
     "@forårsaket_av": {
         "event_name": "behov",
         "id": "cf28fbba-562e-4841-b366-be1456fdccee",
@@ -609,7 +527,7 @@ internal class EndToEndTest {
     "system_read_count": 0,
     "@event_name": "utbetalt",
     "@id": "$hendelseId",
-    "@opprettet": "2020-05-04T11:27:13.521398",
+    "@opprettet": "2020-05-04T11:27:13.521000",
     "@forårsaket_av": {
         "event_name": "behov",
         "id": "cf28fbba-562e-4841-b366-be1456fdccee",
@@ -646,7 +564,7 @@ internal class EndToEndTest {
     "system_read_count": 0,
     "@event_name": "utbetalt",
     "@id": "3bcefb15-8fb0-4b9b-99d7-547c0c295820",
-    "@opprettet": "2020-06-10T10:46:46.007854",
+    "@opprettet": "2020-06-10T10:46:46.007000",
     "@forårsaket_av": {
         "event_name": "behov",
         "id": "75e4718f-ae59-4701-a09c-001630bcbd1a",

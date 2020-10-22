@@ -81,6 +81,9 @@ internal class EndToEndAnnuleringTest {
         val event = Annullering(fødselsnummer = FNR, fagsystemId = fagsystemId)
 
         assertEquals(event, sendtTilStønad)
+
+        val lagretAnnullering = annulleringDao.hentAnnulleringer().first()
+        assertEquals(event, lagretAnnullering)
     }
 
     @Language("JSON")
@@ -132,7 +135,4 @@ internal class EndToEndAnnuleringTest {
 }
 """
 
-    private fun sykedager(fom: LocalDate, tom: LocalDate) =
-        fom.datesUntil(tom.plusDays(1)).asSequence()
-            .filter { it.dayOfWeek !in arrayOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY) }.count()
 }
