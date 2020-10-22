@@ -119,7 +119,7 @@ internal class EndToEndTest {
             forbrukteSykedager = 6,
             gjenståendeSykedager = 242,
             maksdato = LocalDate.of(2021, 6, 11),
-            sendtTilUtbetalingTidspunkt = sendtTilStønad.sendtTilUtbetalingTidspunkt
+            utbetalingstidspunkt = sendtTilStønad.utbetalingstidspunkt
         )
 
         val lagretVedtak = utbetaltDao.hentUtbetalinger().first()
@@ -191,7 +191,7 @@ internal class EndToEndTest {
             forbrukteSykedager = 6,
             gjenståendeSykedager = 242,
             maksdato = LocalDate.of(2021, 6, 11),
-            sendtTilUtbetalingTidspunkt = sendtTilStønad.sendtTilUtbetalingTidspunkt
+            utbetalingstidspunkt = sendtTilStønad.utbetalingstidspunkt
         )
 
         assertEquals(event, sendtTilStønad)
@@ -262,7 +262,7 @@ internal class EndToEndTest {
             forbrukteSykedager = 6,
             gjenståendeSykedager = 242,
             maksdato = LocalDate.of(2021, 6, 11),
-            sendtTilUtbetalingTidspunkt = sendtTilStønad.sendtTilUtbetalingTidspunkt
+            utbetalingstidspunkt = sendtTilStønad.utbetalingstidspunkt
         )
 
         assertEquals(event, sendtTilStønad)

@@ -33,7 +33,7 @@ class UtbetaltDao(val datasource: DataSource) {
         val query = """INSERT INTO vedtak(
             fodselsnummer,
             organisasjonsnummer,
-            sendt_til_utbetaling_tidspunkt,
+            utbetalingstidspunkt,
             fom,
             tom,
             forbrukte_sykedager,
@@ -49,7 +49,7 @@ class UtbetaltDao(val datasource: DataSource) {
                 query,
                 vedtak.fødselsnummer,
                 vedtak.organisasjonsnummer,
-                vedtak.sendtTilUtbetalingTidspunkt,
+                vedtak.utbetalingstidspunkt,
                 vedtak.fom,
                 vedtak.tom,
                 vedtak.forbrukteSykedager,
@@ -146,7 +146,7 @@ class UtbetaltDao(val datasource: DataSource) {
                     forbrukteSykedager = it.int("forbrukte_sykedager"),
                     gjenståendeSykedager = it.int("gjenstaende_sykedager"),
                     maksdato = it.localDateOrNull("maksdato"),
-                    sendtTilUtbetalingTidspunkt = it.localDateTime("sendt_til_utbetaling_tidspunkt")
+                    utbetalingstidspunkt = it.localDateTime("utbetalingstidspunkt")
                 )
             }.asList)
         }

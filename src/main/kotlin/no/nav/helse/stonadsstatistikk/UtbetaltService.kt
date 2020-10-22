@@ -56,7 +56,7 @@ internal class UtbetaltService(
         forbrukteSykedager = forbrukteSykedager,
         gjenståendeSykedager = gjenståendeSykedager,
         maksdato = maksdato,
-        sendtTilUtbetalingTidspunkt = opprettet
+        utbetalingstidspunkt = opprettet
     )
 
     internal fun håndter(vedtak: UtbetaltUtenMaksdatoRiver.Vedtak) {
@@ -102,7 +102,7 @@ internal class UtbetaltService(
         forbrukteSykedager = forbrukteSykedager,
         gjenståendeSykedager = gjenståendeSykedager,
         maksdato = maksdato,
-        sendtTilUtbetalingTidspunkt = opprettet
+        utbetalingstidspunkt = opprettet
     )
 
     internal fun håndter(vedtak: OldUtbetalingRiver.OldVedtak) {
@@ -150,7 +150,7 @@ internal class UtbetaltService(
         gjenståendeSykedager = gjenståendeSykedager
             ?: beregnGjenståendeSykedager(maksdato, utbetalinger.maxOf { it.tom }),
         maksdato = maksdato,
-        sendtTilUtbetalingTidspunkt = opprettet
+        utbetalingstidspunkt = opprettet
     )
 
     internal fun håndter(annullering: Annullering) {

@@ -78,7 +78,7 @@ internal class EndToEndAnnuleringTest {
 
         val sendtTilStønad = objectMapper.readValue<Annullering>(record.value())
 
-        val event = Annullering(fødselsnummer = FNR, fagsystemId = fagsystemId)
+        val event = Annullering(fødselsnummer = FNR, fagsystemId = fagsystemId, annulleringstidspunkt = sendtTilStønad.annulleringstidspunkt)
 
         assertEquals(event, sendtTilStønad)
 
@@ -89,7 +89,7 @@ internal class EndToEndAnnuleringTest {
     @Language("JSON")
     private fun utbetalingBehovAnnullert(fagsystemId: String, fom: LocalDate, tom: LocalDate) = """{
     "@event_name": "behov",
-    "@opprettet": "2020-10-20T14:54:12.156923",
+    "@opprettet": "2020-10-20T14:54:12.156000",
     "@id": "a1d398e3-55b3-4bf6-9aef-2bf3b0c73e18",
     "@behov": [
         "Utbetaling"

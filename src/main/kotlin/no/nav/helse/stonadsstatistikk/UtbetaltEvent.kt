@@ -16,7 +16,7 @@ data class UtbetaltEvent(
     val forbrukteSykedager: Int,
     val gjenståendeSykedager: Int,
     val maksdato: LocalDate?,
-    val sendtTilUtbetalingTidspunkt: LocalDateTime
+    val utbetalingstidspunkt: LocalDateTime
 ) {
     data class Utbetalt(
         val mottaker: String,
@@ -38,5 +38,6 @@ data class UtbetaltEvent(
 
 data class Annullering(
     val fødselsnummer: String,
-    val fagsystemId: String
+    val fagsystemId: String,
+    val annulleringstidspunkt: LocalDateTime
 )

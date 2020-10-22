@@ -10,19 +10,19 @@ CREATE INDEX hendelse_hendelse_id_idx ON hendelse (hendelse_id);
 
 CREATE TABLE vedtak
 (
-    id                             SERIAL PRIMARY KEY,
-    fodselsnummer                  CHAR(11)  NOT NULL,
-    organisasjonsnummer            CHAR(9)   NOT NULL,
-    sendt_til_utbetaling_tidspunkt TIMESTAMP NOT NULL,
-    fom                            DATE      NOT NULL,
-    tom                            DATE      NOT NULL,
-    forbrukte_sykedager            INTEGER   NOT NULL,
-    gjenstaende_sykedager          INTEGER   NOT NULL,
-    maksdato                       DATE,
-    sykmelding_id                  UUID      NOT NULL,
-    soknad_id                      UUID      NOT NULL,
-    inntektsmelding_id             UUID,
-    hendelse_id                    UUID      NOT NULL
+    id                    SERIAL PRIMARY KEY,
+    fodselsnummer         CHAR(11)  NOT NULL,
+    organisasjonsnummer   CHAR(9)   NOT NULL,
+    utbetalingstidspunkt  TIMESTAMP NOT NULL,
+    fom                   DATE      NOT NULL,
+    tom                   DATE      NOT NULL,
+    forbrukte_sykedager   INTEGER   NOT NULL,
+    gjenstaende_sykedager INTEGER   NOT NULL,
+    maksdato              DATE,
+    sykmelding_id         UUID      NOT NULL,
+    soknad_id             UUID      NOT NULL,
+    inntektsmelding_id    UUID,
+    hendelse_id           UUID      NOT NULL
 );
 
 CREATE TABLE oppdrag
@@ -57,7 +57,8 @@ CREATE TABLE vedtak_utbetalingsref
 
 CREATE TABLE annullering
 (
-    id            SERIAL PRIMARY KEY,
-    fodselsnummer CHAR(11) NOT NULL,
-    fagsystem_id  VARCHAR  NOT NULL
+    id                    SERIAL PRIMARY KEY,
+    fodselsnummer         CHAR(11)  NOT NULL,
+    fagsystem_id          VARCHAR   NOT NULL,
+    annulleringstidspunkt TIMESTAMP NOT NULL
 );
