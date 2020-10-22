@@ -52,8 +52,10 @@ CREATE TABLE vedtak_utbetalingsref
     vedtaksperiode_id UUID     NOT NULL,
     utbetalingsref    CHAR(26) NOT NULL,
     maksdato          DATE     NOT NULL,
-    PRIMARY KEY (vedtaksperiode_id, utbetalingsref)
+    PRIMARY KEY (vedtaksperiode_id)
 );
+
+CREATE INDEX utbetalingsref_idx ON vedtak_utbetalingsref(utbetalingsref);
 
 CREATE TABLE annullering
 (

@@ -107,8 +107,7 @@ internal class UtbetaltService(
 
     internal fun håndter(vedtak: OldUtbetalingRiver.OldVedtak) {
         val dokumenter = dokumentDao.finnDokumenter(vedtak.hendelser)
-        val fagsystemId = utbetaltBehovDao.finnFagsystemIdForVedtaksperiodeId(vedtak.vedtaksperiodeId)
-        val maksdato = utbetaltBehovDao.finnMaksdatoForVedtaksperiodeId(vedtak.vedtaksperiodeId)
+        val (fagsystemId, maksdato) = utbetaltBehovDao.finnManglendeVerdier(vedtak.vedtaksperiodeId)
         val stønad: UtbetaltEvent = vedtak.toUtbetalt(dokumenter, fagsystemId, maksdato)
         utbetaltDao.opprett(vedtak.hendelseId, stønad)
         stønadProducer.send(ProducerRecord(

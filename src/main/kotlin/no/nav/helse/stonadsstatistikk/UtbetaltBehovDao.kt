@@ -11,14 +11,15 @@ class UtbetaltBehovDao(val datasource: DataSource) {
 
     fun lagre(vedtaksperiodeId: UUID, fagsystemId: String, maksdato: LocalDate) {
         @Language("PostgreSQL")
-        val query = "INSERT INTO vedtak_utbetalingsref(vedtaksperiode_id, utbetalingsref, maksdato) VALUES(?,?,?) ON CONFLICT DO NOTHING"
+        val query = "INSERT INTO vedtak_utbetalingsref(vedtaksperiode_id, utbetalingsref, maksdato) VALUES(:vedtaksperiode_id,:utbetalingsref,:maksdato) ON CONFLICT(vedtaksperiode_id) DO UPDATE SET utbetalingsref=:utbetalingsref, maksdato=:maksdato"
         sessionOf(datasource).use { session ->
             session.run(
                 queryOf(
                     query,
-                    vedtaksperiodeId,
-                    fagsystemId,
-                    maksdato
+                    mapOf(
+                        "vedtaksperiode_id" to vedtaksperiodeId,
+                        "utbetalingsref" to fagsystemId,
+                        "maksdato" to maksdato)
                 ).asUpdate
             )
         }
@@ -32,19 +33,11 @@ class UtbetaltBehovDao(val datasource: DataSource) {
         ))
     }
 
-    fun finnMaksdatoForVedtaksperiodeId(vedtaksperiodeId: UUID) = sessionOf(datasource).use { session ->
+    fun finnManglendeVerdier(vedtaksperiodeId: UUID) = sessionOf(datasource).use { session ->
         @Language("PostgreSQL")
-        val query = "SELECT maksdato FROM vedtak_utbetalingsref WHERE vedtaksperiode_id = ?"
+        val query = "SELECT utbetalingsref, maksdato FROM vedtak_utbetalingsref WHERE vedtaksperiode_id = ?"
         requireNotNull(session.run(
-            queryOf(query, vedtaksperiodeId).map { row -> row.localDate("maksdato") }.asSingle
-        ))
-    }
-
-    fun finnFagsystemIdForVedtaksperiodeId(vedtaksperiodeId: UUID) = sessionOf(datasource).use { session ->
-        @Language("PostgreSQL")
-        val query = "SELECT utbetalingsref FROM vedtak_utbetalingsref WHERE vedtaksperiode_id = ?"
-        requireNotNull(session.run(
-            queryOf(query, vedtaksperiodeId).map { row -> row.string("utbetalingsref") }.asSingle
+            queryOf(query, vedtaksperiodeId).map { row -> row.string("utbetalingsref") to row.localDate("maksdato") }.asSingle
         ))
     }
 }

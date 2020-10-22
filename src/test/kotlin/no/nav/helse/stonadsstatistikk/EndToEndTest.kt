@@ -349,7 +349,7 @@ internal class EndToEndTest {
                                 u.dagsats,
                                 u.sykedager,
                                 (u.belop * u.sykedager) totalbelop,
-                                v.sendt_til_utbetaling_tidspunkt             utbetalt_tidspunkt,
+                                v.utbetalingstidspunkt             utbetalt_tidspunkt,
                                 v.organisasjonsnummer,
                                 v.forbrukte_sykedager,
                                 v.gjenstaende_sykedager,
