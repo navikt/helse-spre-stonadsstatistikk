@@ -1,7 +1,7 @@
 apiVersion: nais.io/v1alpha1
 kind: Application
 metadata:
-  name: stonadsstatistikk
+  name: spre-stonadsstatistikk
   namespace: tbd
   labels:
     team: tbd
@@ -42,7 +42,7 @@ spec:
   - name: KAFKA_RAPID_TOPIC
     value: helse-rapid-v1
   - name: KAFKA_CONSUMER_GROUP_ID
-    value: stonadsstatistikk-test-v1
+    value: spre-stonadsstatistikk-test-v1
   - name: KAFKA_RESET_POLICY
     value: earliest
   - name: DATABASE_HOST
