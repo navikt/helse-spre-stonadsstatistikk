@@ -61,7 +61,7 @@ internal class UtbetaltService(
 
     internal fun håndter(vedtak: UtbetaltUtenMaksdatoRiver.Vedtak) {
         val dokumenter = dokumentDao.finnDokumenter(vedtak.hendelser)
-        val maksdato = utbetaltBehovDao.finnMaksdatoForFagsystemId(vedtak.oppdrag.first { it.utbetalingslinjer.isNotEmpty() }.fagsystemId)
+        val maksdato = utbetaltBehovDao.finnMaksdatoForFagsystemId(vedtak.oppdrag.first { it.mottaker == vedtak.orgnummer }.fagsystemId)
         val stønad: UtbetaltEvent = vedtak.toUtbetalt(dokumenter, maksdato)
         utbetaltDao.opprett(vedtak.hendelseId, stønad)
         stønadProducer.send(ProducerRecord(
@@ -73,13 +73,13 @@ internal class UtbetaltService(
         ))
     }
 
-    private fun UtbetaltUtenMaksdatoRiver.Vedtak.toUtbetalt(dokumenter: Dokumenter, maksdato: LocalDate) = UtbetaltEvent(
+    private fun UtbetaltUtenMaksdatoRiver.Vedtak.toUtbetalt(dokumenter: Dokumenter, maksdato: LocalDate?) = UtbetaltEvent(
         fødselsnummer = fødselsnummer,
         organisasjonsnummer = orgnummer,
         sykmeldingId = dokumenter.sykmelding.dokumentId,
         soknadId = dokumenter.søknad.dokumentId,
         inntektsmeldingId = dokumenter.inntektsmelding?.dokumentId,
-        oppdrag = oppdrag.filter { oppdrag -> oppdrag.utbetalingslinjer.isNotEmpty() }.map { oppdrag ->
+        oppdrag = oppdrag.filter { oppdrag -> oppdrag.mottaker == orgnummer }.map { oppdrag ->
             UtbetaltEvent.Utbetalt(
                 mottaker = oppdrag.mottaker,
                 fagområde = oppdrag.fagområde,

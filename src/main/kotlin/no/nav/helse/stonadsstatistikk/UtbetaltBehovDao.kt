@@ -28,9 +28,9 @@ class UtbetaltBehovDao(val datasource: DataSource) {
     fun finnMaksdatoForFagsystemId(fagsystemId: String) = sessionOf(datasource).use { session ->
         @Language("PostgreSQL")
         val query = "SELECT maksdato FROM vedtak_utbetalingsref WHERE utbetalingsref = ?"
-        requireNotNull(session.run(
+        session.run(
             queryOf(query, fagsystemId).map { row -> row.localDate("maksdato") }.asSingle
-        ))
+        )
     }
 
     fun finnManglendeVerdier(vedtaksperiodeId: UUID) = sessionOf(datasource).use { session ->
