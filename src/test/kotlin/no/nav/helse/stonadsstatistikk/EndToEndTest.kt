@@ -57,14 +57,7 @@ internal class EndToEndTest {
         testRapid.reset()
         sessionOf(dataSource).use { session ->
             @Language("PostgreSQL")
-            val query = """
-                DELETE FROM utbetaling;
-                DELETE FROM oppdrag;
-                DELETE FROM vedtak;
-                DELETE FROM hendelse;
-                DELETE FROM vedtak_utbetalingsref;
-                DELETE FROM annullering;
-                """
+            val query = "TRUNCATE TABLE utbetaling, oppdrag, vedtak, hendelse, vedtak_utbetalingsref, annullering"
             session.run(queryOf(query).asExecute)
         }
     }
