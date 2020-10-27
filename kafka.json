@@ -14,6 +14,10 @@
                     "role": "CONSUMER"
                 },
                 {
+                    "member": "srv-sykp-konsument",
+                    "role": "CONSUMER"
+                },
+                {
                     "member": "S151890",
                     "role": "MANAGER"
                 },
