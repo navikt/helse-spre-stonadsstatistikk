@@ -1,13 +1,14 @@
-Spøkelse [![Actions Status](https://github.com/navikt/helse-sparkel-behov/workflows/master/badge.svg)](https://github.com/navikt/helse-sparkel-behov/actions)
+Spre stønadsstatistikk [![Actions Status](https://github.com/navikt/helse-spre-stonadsstatistikk/workflows/master/badge.svg)](https://github.com/navikt/helse-spre-stonadsstatistikk/actions)
 =============
 
-En døende app som skal sy sammen kafka meldinger fra sykepenger og meldinger fra infotrygd gjennom facaden.
-Tilbyr samme soap grensesnitt som hentSykepenger i Facade. Denne appen eksisterer bare for å gi eksisterende brukere av facade litt bedre tid på seg før de må gå over til å  spørre med need på kafka
 
-# Henvendelser
+## Beskrivelse
+En app som publiserer utbetalinger og annuleringer på topic aapen-sykepenger-stonadsstatistikk
+
+## Henvendelser
 
 Spørsmål knyttet til koden eller prosjektet kan stilles som issues her på GitHub.
 
 ## For NAV-ansatte
 
-Interne henvendelser kan sendes via Slack i kanalen #område-helse.
+Interne henvendelser kan sendes via Slack i kanalen #team-bømlo-værsågod.
