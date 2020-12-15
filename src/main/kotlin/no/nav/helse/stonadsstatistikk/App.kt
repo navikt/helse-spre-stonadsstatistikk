@@ -51,7 +51,6 @@ fun launchApplication(env: Environment) {
             UtbetaltRiver(this, utbetaltService)
             UtbetaltUtenMaksdatoRiver(this, utbetaltService)
             OldUtbetalingRiver(this, utbetaltService)
-            UtbetalingBehovAnnullertRiver(this, utbetaltService)
             start()
         }
 }
