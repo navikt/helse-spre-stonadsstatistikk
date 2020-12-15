@@ -18,10 +18,7 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.util.*
 
-private const val FNR = "12020052345"
-private const val ORGNUMMER = "987654321"
-
-internal class EndToEndAnnuleringTest {
+internal class EndToEndAnnulleringTest {
     private val testRapid = TestRapid()
     private val dataSource = testDataSource()
     private val dokumentDao = mockk<DokumentDao>()
